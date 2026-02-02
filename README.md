@@ -89,11 +89,11 @@ DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/db_name
 SECRET_KEY=your-random-secret-key
 ```
 3. Install dependencies:
-`cd ./hans/backend/`
-`poetry install`
-`poetry run uvicorn hans.main:app --reload`
-4. Start the server:
-`poetry run uvicorn hans.main:app --reload`
+```
+cd ./hans/backend/
+poetry install
+```
+4. Start the server: `poetry run uvicorn hans.main:app --reload`
 5. Open http://localhost:8000/docs for Swagger UI.
 
 Note: Database tables are auto-created on startup. No initial data seeding yet.
