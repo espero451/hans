@@ -10,7 +10,7 @@ from sqlalchemy import ForeignKey, Date
 from hans.db import Base, get_db
 from hans.auth import get_current_user, User
 from hans.core import app, audit_log
-from hans.owners import Owner  # только модель, без импорта роутеров
+from hans.owners import Owner
 
 
 # ---------------- SCHEMAS ----------------

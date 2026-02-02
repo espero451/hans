@@ -5,16 +5,10 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import Mapped, mapped_column
 
 from hans.core import app, settings
-from hans.db import get_db
-from hans.db import Base
-from hans.db import engine  # если понадобится
-from hans.db import SessionLocal  # опционально
-from hans.db import AsyncSession
-
-from hans.db import Base  # для модели User
-from sqlalchemy.orm import Mapped, mapped_column
+from hans.db import get_db, Base, AsyncSession
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

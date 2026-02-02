@@ -83,7 +83,7 @@ class Result(Base):
     value: Mapped[str]
     units: Mapped[str]
     flags: Mapped[str]
-    specimen_status: Mapped[str] = mapped_column(String(1), nullable=False)  # C / R / A
+    specimen_status: Mapped[str] = mapped_column(String(1), nullable=False)  # N / C / R
     collected_at: Mapped[datetime] = mapped_column(default=None, nullable=True)
     verified: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
@@ -126,21 +126,6 @@ async def create_order(
 
     test_ids_out: List[int] = []
 
-    # if data.test_ids:
-    #     # Валидация: проверяем, что все указанные test_ids существуют
-    #     count_result = await db.execute(
-    #         select(func.count()).select_from(Test).where(Test.id.in_(data.test_ids))
-    #     )
-    #     if count_result.scalar() != len(data.test_ids):
-    #         raise HTTPException(status_code=400, detail="Один или несколько test_ids не существуют")
-
-    #     # Прямые вставки в ассоциативную таблицу order_tests
-    #     for test_id in data.test_ids:
-    #         await db.execute(
-    #             insert(order_tests).values(order_id=order.id, test_id=test_id)
-    #         )
-    #     test_ids_out = data.test_ids
-
     ### <
 
     if data.test_ids:
@@ -155,7 +140,7 @@ async def create_order(
         raise HTTPException(400, "One or more tests not found")
 
     for test in tests:
-        # realtion order ↔ test (ONE-TIME)
+        # realtion order <-> test (ONE-TIME)
         await db.execute(
             insert(order_tests).values(
                 order_id=order.id,
@@ -185,14 +170,14 @@ async def create_order(
 
     service_ids_out: List[int] = []
     if data.service_ids:
-        # Валидация: проверяем, что все указанные service_ids существуют
+        # Validation: check if all service_ids exist
         count_result = await db.execute(
             select(func.count()).select_from(Service).where(Service.id.in_(data.service_ids))
         )
         if count_result.scalar() != len(data.service_ids):
             raise HTTPException(status_code=400, detail="Один или несколько service_ids не существуют")
 
-        # Прямые вставки в ассоциативную таблицу order_services
+        # Inserts to order_services
         for service_id in data.service_ids:
             await db.execute(
                 insert(order_services).values(order_id=order.id, service_id=service_id)
@@ -258,31 +243,3 @@ async def get_patient_orders(
             )
         )
     return orders_out
-
-
-
-# --- RESULTS ----------------
-
-@app.post("/results")
-async def create_result(data: ResultCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    specimen_result = await db.execute(select(Specimen).where(Specimen.id == data.specimen_id))
-    specimen = specimen_result.scalar_one_or_none()
-    if not specimen:
-        raise HTTPException(404, "Specimen not found")
-
-    test_result = await db.execute(select(Test).where(Test.id == data.test_id))
-    test = test_result.scalar_one_or_none()
-    if not test:
-        raise HTTPException(404, "Test not found")
-
-    result_obj = Result(
-        specimen_id=data.specimen_id,
-        test_id=data.test_id,
-        value=data.value,
-        units=data.units,
-        flags=data.flags
-    )
-    db.add(result_obj)
-    await db.commit()
-    audit_log(user.id, f"Created result {result_obj.id} for specimen {data.specimen_id}")
-    return result_obj
