@@ -24,7 +24,7 @@ class ResultCreate(BaseModel):
     order_id: int
     value: str
     units: str
-    flags: str  # normal / abnormal / custom
+    flags: str  # normal / abnormal / absurd
 
 
 class ResultRead(BaseModel):
@@ -34,7 +34,7 @@ class ResultRead(BaseModel):
     value: Optional[str] = None
     units: Optional[str] = None
     flags: Optional[str] = None
-    specimen_status: Optional[str] = "N"
+    specimen_status: str = "N"
     verified: bool
     created_at: datetime
 
@@ -49,7 +49,7 @@ class OrderRead(BaseModel):
     test_ids: List[int] = []
     service_ids: List[int] = []
     created_at: datetime
-    results: List[ResultRead] = [] # new
+    results: List[ResultRead] = []
 
     class Config:
         from_attributes = True
@@ -211,35 +211,63 @@ async def get_patient_orders(
         .options(
             selectinload(Order.tests),
             selectinload(Order.services),
-            selectinload(Order.results)  # NEW
+            selectinload(Order.results)
         )
     )
     orders = result.scalars().all()
 
-    orders_out = []
-    for o in orders:
-        orders_out.append(
-            OrderRead(
-                id=o.id,
-                patient_id=o.patient_id,
-                comment=o.comment,
-                test_ids=[t.id for t in o.tests],
-                service_ids=[s.id for s in o.services],
-                created_at=o.created_at,
-                results=[           # new
-                    ResultRead(
-                        id=r.id,
-                        test_id=r.test_id,
-                        specimen_id=r.specimen_id,
-                        value=r.value,
-                        units=r.units,
-                        flags=r.flags,
-                        specimen_status=r.specimen_status,
-                        verified=r.verified,
-                        created_at=r.created_at
-                    )
-                    for r in o.results
-                ]
-            )
+
+    # orders_out = []
+    # for o in orders:
+    #     orders_out.append(
+    #         OrderRead(
+    #             id=o.id,
+    #             patient_id=o.patient_id,
+    #             comment=o.comment,
+    #             test_ids=[t.id for t in o.tests],
+    #             service_ids=[s.id for s in o.services],
+    #             created_at=o.created_at,
+    #             results=[           # new
+    #                 ResultRead(
+    #                     id=r.id,
+    #                     test_id=r.test_id,
+    #                     specimen_id=r.specimen_id,
+    #                     value=r.value,
+    #                     units=r.units,
+    #                     flags=r.flags,
+    #                     specimen_status=r.specimen_status,
+    #                     verified=r.verified,
+    #                     created_at=r.created_at
+    #                 )
+    #                 for r in o.results
+    #             ]
+    #         )
+    #     )
+    # return orders_out
+
+
+    def _result_to_read(r: Result) -> ResultRead:
+        return ResultRead(
+            id=r.id,
+            test_id=r.test_id,
+            specimen_id=r.specimen_id,
+            value=r.value,
+            units=r.units,
+            flags=r.flags,
+            specimen_status=r.specimen_status,
+            verified=r.verified,
+            created_at=r.created_at,
         )
-    return orders_out
+
+    def _order_to_read(o: Order) -> OrderRead:
+        return OrderRead(
+            id=o.id,
+            patient_id=o.patient_id,
+            comment=o.comment,
+            test_ids=[t.id for t in o.tests],
+            service_ids=[s.id for s in o.services],
+            created_at=o.created_at,
+            results=[_result_to_read(r) for r in o.results],
+        )
+
+    return [_order_to_read(o) for o in orders]
