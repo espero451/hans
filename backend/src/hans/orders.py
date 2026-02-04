@@ -62,6 +62,10 @@ class OrderCreate(BaseModel):
     comment: Optional[str] = None
 
 
+class SpecimenCollect(BaseModel):
+    patient_id: int
+    test_id: int
+
 # ---------------- MODELS ----------------
 
 class Order(Base):
@@ -213,7 +217,7 @@ async def create_order(
 
 def _result_to_read(r: Result) -> ResultRead:
     return ResultRead.model_validate(r)
-    
+
 def _order_to_read(o: Order) -> OrderRead:
     return OrderRead(
         id=o.id,
@@ -266,3 +270,26 @@ async def get_patient_orders(
     orders = result.scalars().all()
 
     return [_order_to_read(o) for o in orders]
+
+
+
+@app.patch("/results/{result_id}/collect" , response_model=ResultRead)
+async def specimen_collect(
+    result_id: int, 
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    result = await db.execute(
+        select(Result).where(Result.id == result_id)
+    )
+    result = result.scalar_one_or_none()
+    if not result:
+        raise HTTPException(404, "Result not found")
+    if result.specimen_status == "N":
+        result.specimen_status = "C"
+        result.collected_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(result)
+
+        audit_log(user.id, f"Specimen collected for {result_id}")
+    return ResultRead.model_validate(result)

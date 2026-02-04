@@ -45,8 +45,8 @@ async function load() {
   services.value = servicesRes.data;
 }
 
-async function collectSpecimen(specimenId: number) {
-  await api.patch(`/specimens/${specimenId}/collect`, { collected: true });
+async function collectSpecimen(resultId: number) {
+  await api.patch(`/results/${resultId}/collect`);
   load();
 }
 
@@ -90,7 +90,7 @@ onMounted(load);
               {{ r.specimen_status || "N" }}
               <button
                 v-if="r.specimen_status !== 'C'"
-                @click="collectSpecimen(r.specimen_id)"
+                @click="collectSpecimen(r.id)"
               >
                 Collect
               </button>
