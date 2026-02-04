@@ -198,6 +198,55 @@ async def create_order(
         created_at=order.created_at
     )
 
+# def _result_to_read(r: Result) -> ResultRead:
+#     return ResultRead(
+#         id=r.id,
+#         test_id=r.test_id,
+#         specimen_id=r.specimen_id,
+#         value=r.value,
+#         units=r.units,
+#         flags=r.flags,
+#         specimen_status=r.specimen_status,
+#         verified=r.verified,
+#         created_at=r.created_at,
+#     )
+
+def _result_to_read(r: Result) -> ResultRead:
+    return ResultRead.model_validate(r)
+    
+def _order_to_read(o: Order) -> OrderRead:
+    return OrderRead(
+        id=o.id,
+        patient_id=o.patient_id,
+        comment=o.comment,
+        test_ids=[t.id for t in o.tests],
+        service_ids=[s.id for s in o.services],
+        created_at=o.created_at,
+        results=[_result_to_read(r) for r in o.results],
+    )
+
+@app.get("/orders/{order_id}", response_model=OrderRead)
+async def get_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    _result = await db.execute(
+        select(Order)
+        .where(Order.id == order_id)
+        .options(
+            selectinload(Order.tests),
+            selectinload(Order.services),
+            selectinload(Order.results)
+        )
+    )
+
+    order = _result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    return _order_to_read(order)
+
 
 @app.get("/patients/{patient_id}/orders", response_model=List[OrderRead])
 async def get_patient_orders(
@@ -215,59 +264,5 @@ async def get_patient_orders(
         )
     )
     orders = result.scalars().all()
-
-
-    # orders_out = []
-    # for o in orders:
-    #     orders_out.append(
-    #         OrderRead(
-    #             id=o.id,
-    #             patient_id=o.patient_id,
-    #             comment=o.comment,
-    #             test_ids=[t.id for t in o.tests],
-    #             service_ids=[s.id for s in o.services],
-    #             created_at=o.created_at,
-    #             results=[           # new
-    #                 ResultRead(
-    #                     id=r.id,
-    #                     test_id=r.test_id,
-    #                     specimen_id=r.specimen_id,
-    #                     value=r.value,
-    #                     units=r.units,
-    #                     flags=r.flags,
-    #                     specimen_status=r.specimen_status,
-    #                     verified=r.verified,
-    #                     created_at=r.created_at
-    #                 )
-    #                 for r in o.results
-    #             ]
-    #         )
-    #     )
-    # return orders_out
-
-
-    def _result_to_read(r: Result) -> ResultRead:
-        return ResultRead(
-            id=r.id,
-            test_id=r.test_id,
-            specimen_id=r.specimen_id,
-            value=r.value,
-            units=r.units,
-            flags=r.flags,
-            specimen_status=r.specimen_status,
-            verified=r.verified,
-            created_at=r.created_at,
-        )
-
-    def _order_to_read(o: Order) -> OrderRead:
-        return OrderRead(
-            id=o.id,
-            patient_id=o.patient_id,
-            comment=o.comment,
-            test_ids=[t.id for t in o.tests],
-            service_ids=[s.id for s in o.services],
-            created_at=o.created_at,
-            results=[_result_to_read(r) for r in o.results],
-        )
 
     return [_order_to_read(o) for o in orders]
