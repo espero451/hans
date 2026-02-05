@@ -1,6 +1,6 @@
 # Hans LIS
 
-Minimalistic backend for a Veterinary Laboratory Information System (LIS). Early development stage.
+Minimalistic Veterinary Laboratory Information System (LIS). Early development stage.
 
 ## Overview
 
@@ -17,11 +17,7 @@ All operations are logged in daily audit files for traceability.
 ## Main Functionality
 
 - **Authentication**: JWT-based login, protected endpoints
-- **Owners**: CRUD operations (name, contact details, comment)
-- **Patients**: CRUD operations (name, species, breed, birth date, linked to owner)
-- **Specimens**: CRUD operations (sample types, tube, description)
-- **Tests**: CRUD operations (name, description, cost, linked to specimen type)
-- **Services**: CRUD operations (name, description, price)
+- **CRUD** operations for core entities (owners, patients, specimens, tests, services, orders, results).
 - **Orders**: Create orders for a patient with selected tests and services; automatically creates result placeholders
 - **Results**: View and (future) update test results (value, units, flags, status, verification)
 - **Audit logging**: Every create/update/delete action is recorded with user ID and timestamp
@@ -38,7 +34,7 @@ All operations are logged in daily audit files for traceability.
 - Python-dotenv (environment variables)
 
 <details>
-<summary>## Database Structure</summary>
+<summary>Current Database Structure</summary>
 
 PostgreSQL (async engine). Main tables:
 
@@ -108,7 +104,7 @@ Note: Database tables are auto-created on startup. No initial data seeding yet.
 - No patient/owner search or filtering
 - No reporting, statistics, or export features
 - No file attachments (e.g., PDFs, images)
-- No frontend integration yet (CORS configured for http://localhost:5173)
+- ~~No frontend integration yet (CORS configured for http://localhost:5173)~~
 - Minimal input validation beyond Pydantic
 - No tests (unit/integration)
 - Audit logs are plain files (consider database table or structured logging)
