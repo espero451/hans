@@ -12,13 +12,13 @@ const specimens = ref<any[]>([]);
 const services = ref<any[]>([]);
 
 // "Add" forms
-const newTestName = ref("");
-const newTestSpecimenId = ref<number | null>(null);
+const newTestCode = ref("");
+const newTestSpecimenTypeId = ref<number | null>(null);
 const newTestDescription = ref("");
-const newTestCost = ref<number | null>(null);
+const newTestPrice = ref<number | null>(null);
 
+const newSpecimenCode = ref("");
 const newSpecimenName = ref("");
-const newSpecimenType = ref("");
 const newSpecimenTube = ref("");
 const newSpecimenDesc = ref("");
 
@@ -54,17 +54,17 @@ async function loadAll() {
 
 async function addTest() {
   if (
-    !newTestName.value ||
-    newTestSpecimenId.value === null ||
-    newTestCost.value === null
+    !newTestCode.value ||
+    newTestSpecimenTypeId.value === null ||
+    newTestPrice.value === null
   )
     return;
 
   await api.post("/tests", {
-    name: newTestName.value,
+    code: newTestCode.value,
     description: newTestDescription.value,
-    cost: newTestCost.value,
-    specimen_id: newTestSpecimenId.value,
+    price: newTestPrice.value,
+    specimen_type_id: newTestSpecimenTypeId.value,
   });
 
   await loadTests();
@@ -72,20 +72,20 @@ async function addTest() {
 
 async function addSpecimen() {
   if (
+    !newSpecimenCode.value ||
     !newSpecimenName.value ||
-    !newSpecimenType.value ||
     !newSpecimenTube.value
   )
     return;
 
   await api.post("/specimens", {
+    code: newSpecimenCode.value,
     name: newSpecimenName.value,
-    type: newSpecimenType.value,
     tube: newSpecimenTube.value,
     description: newSpecimenDesc.value,
   });
+  newSpecimenCode.value = "";
   newSpecimenName.value = "";
-  newSpecimenType.value = "";
   newSpecimenTube.value = "";
   newSpecimenDesc.value = "";
 
@@ -134,15 +134,15 @@ async function deleteService(id: number) {
     <section style="margin-bottom: 24px">
       <h3>Tests</h3>
       <div style="margin-bottom: 8px">
-        <input v-model="newTestName" placeholder="Test Name" />
-        <select v-model.number="newTestSpecimenId">
+        <input v-model="newTestCode" placeholder="Test Code" />
+        <select v-model.number="newTestSpecimenTypeId">
           <option disabled :value="null">Select Specimen</option>
           <option v-for="s in specimenOptions" :key="s.id" :value="s.id">
-            {{ s.name }} ({{ s.type }})
+            {{ s.name }} ({{ s.code }})
           </option>
         </select>
         <input v-model="newTestDescription" placeholder="Description" />
-        <input type="number" v-model="newTestCost" placeholder="Cost" />
+        <input type="number" v-model="newTestPrice" placeholder="Price" />
         <button @click="addTest">💾</button>
       </div>
 
@@ -164,8 +164,8 @@ async function deleteService(id: number) {
           "
         >
           <div style="flex: 1">ID</div>
-          <div style="flex: 2">Name</div>
-          <div style="flex: 2">Specimen</div>
+          <div style="flex: 2">Code</div>
+          <div style="flex: 2">Specimen Type</div>
           <div style="flex: 1">Price</div>
         </div>
         <div
@@ -174,9 +174,9 @@ async function deleteService(id: number) {
           style="display: flex; padding: 4px; border-bottom: 1px solid #eee"
         >
           <div style="flex: 1">{{ t.id }}</div>
-          <div style="flex: 2">{{ t.name }}</div>
-          <div style="flex: 2">{{ t.specimen_id }}</div>
-          <div style="flex: 1">${{ t.cost }}</div>
+          <div style="flex: 2">{{ t.code }}</div>
+          <div style="flex: 2">{{ t.specimen_type_id }}</div>
+          <div style="flex: 1">${{ t.price }}</div>
           <div>
             <button @click="deleteTest(t.id).then(loadTests)">🗙</button>
           </div>
@@ -189,8 +189,8 @@ async function deleteService(id: number) {
     <section style="margin-bottom: 24px">
       <h3>Specimens</h3>
       <div style="margin-bottom: 8px">
-        <input v-model="newSpecimenName" placeholder="Specimen Name" />
-        <input v-model="newSpecimenType" placeholder="Type" />
+        <input v-model="newSpecimenCode" placeholder="Specimen Code" />
+        <input v-model="newSpecimenName" placeholder="Name" />
         <input v-model="newSpecimenTube" placeholder="Tube" />
         <input v-model="newSpecimenDesc" placeholder="Description" />
         <button @click="addSpecimen">💾</button>
@@ -214,8 +214,8 @@ async function deleteService(id: number) {
           "
         >
           <div style="flex: 1">ID</div>
-          <div style="flex: 2">Name</div>
-          <div style="flex: 1">Type</div>
+          <div style="flex: 2">Code</div>
+          <div style="flex: 1">Name</div>
           <div style="flex: 1">Tube</div>
           <div style="flex: 2">Description</div>
         </div>
@@ -225,8 +225,8 @@ async function deleteService(id: number) {
           style="display: flex; padding: 4px; border-bottom: 1px solid #eee"
         >
           <div style="flex: 1">{{ s.id }}</div>
-          <div style="flex: 2">{{ s.name }}</div>
-          <div style="flex: 1">{{ s.type }}</div>
+          <div style="flex: 2">{{ s.code }}</div>
+          <div style="flex: 1">{{ s.name }}</div>
           <div style="flex: 1">{{ s.tube }}</div>
           <div style="flex: 2">{{ s.description }}</div>
           <div>

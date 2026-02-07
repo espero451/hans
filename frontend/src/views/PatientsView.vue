@@ -11,18 +11,18 @@ const owner_id = ref<number | null>(null);
 const owners = ref<any[]>([]);
 const birth_date = ref<string | null>(null);
 
-// Загрузка пациентов
+// Loading patients
 async function loadPatients() {
   const res = await api.get("/patients");
   patients.value = res.data;
 }
 
-// Загрузка владельцев (для селектора)
+// Load owners (for selector)
 async function loadOwners() {
   owners.value = await getOwners();
 }
 
-// Добавление пациента
+// Add patient
 async function addPatient() {
   if (!name.value || !species.value || !owner_id.value) return;
   await api.post("/patients", {
@@ -39,13 +39,13 @@ async function addPatient() {
   loadPatients();
 }
 
-// Удаление пациента
+// Delete patient
 async function deletePatient(id: number) {
   await api.delete(`/patients/${id}`);
   loadPatients();
 }
 
-// Функция для редактирования (в базовом виде)
+// Edit pattient (should be rewrited)
 async function updatePatient(id: number) {
   const newName = prompt("New name:");
   const newSpecies = prompt("New species:");
@@ -89,7 +89,7 @@ onMounted(() => {
       <button @click="addPatient">Add Patient</button>
     </div>
 
-    <!-- Таблица пациентов -->
+    <!-- Patients table -->
     <div
       class="patients-table"
       style="display: flex; flex-direction: column; gap: 4px"
@@ -110,7 +110,7 @@ onMounted(() => {
         <div style="flex: 1">Actions</div>
       </div>
 
-      <!-- Строки пациентов -->
+      <!-- Patients rows -->
       <div
         v-for="p in patients"
         :key="p.id"

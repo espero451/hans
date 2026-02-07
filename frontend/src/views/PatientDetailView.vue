@@ -34,9 +34,7 @@ async function load() {
   }
 
   try {
-    const ordersRes = await api.get(
-      `/patients/${id}/orders?_expand=specimens,results`,
-    );
+    const ordersRes = await api.get(`/patients/${id}/orders`);
     orders.value = ordersRes.data;
   } catch (err) {
     console.error("Failed to load orders:", err);
@@ -56,8 +54,8 @@ async function addOrder() {
 
   const res = await api.post("/orders", {
     patient_id: patient.value.id,
-    test_ids: selectedTestIds.value,
-    service_ids: selectedServiceIds.value,
+    test_catalog_ids: selectedTestIds.value,
+    service_catalog_ids: selectedServiceIds.value,
     comment: orderComment.value,
   });
 
@@ -69,15 +67,27 @@ async function addOrder() {
   orderComment.value = "";
 }
 
-async function collectSpecimen(resultId: number) {
-  await api.patch(`/results/${resultId}/collect`);
-  load();
-}
-
 onMounted(load);
 
 function toggleOrder(orderId: number) {
   expandedOrders.value[orderId] = !expandedOrders.value[orderId];
+}
+
+function testLabel(testCatalogId: number) {
+  const test = tests.value.find((t) => t.id === testCatalogId);
+  return test ? test.code || test.name : testCatalogId;
+}
+
+function serviceLabel(serviceCatalogId: number) {
+  const service = services.value.find((s) => s.id === serviceCatalogId);
+  return service ? service.name : serviceCatalogId;
+}
+
+function specimenStatus(order: any, specimenId: string) {
+  const specimen = order?.specimens?.find(
+    (s: any) => s.specimen_id === specimenId
+  );
+  return specimen?.status || "N/A";
 }
 </script>
 
@@ -97,7 +107,7 @@ function toggleOrder(orderId: number) {
     <h3>Create a new order:</h3>
     <label>Tests:</label>
     <select v-model="selectedTestIds" multiple size="3">
-      <option v-for="t in tests" :key="t.id" :value="t.id">{{ t.name }}</option>
+      <option v-for="t in tests" :key="t.id" :value="t.id">{{ t.code }}</option>
     </select>
 
     <label style="padding-left: 50px">Services:</label>
@@ -125,7 +135,7 @@ function toggleOrder(orderId: number) {
       style="border: 1px solid #ccc; padding: 8px 8px 0px; margin: 8px 0"
     >
       <strong style="cursor: pointer" @click="toggleOrder(o.id)">
-        Order #<a :href="`/orders/${o.id}`">{{ o.id }}</a> [Status: {{ o.status || "N/A" }}] </strong
+        Order #<a :href="`/orders/${o.id}`">{{ o.id }}</a> [Archived: {{ o.archived ? "Yes" : "No" }}] </strong
       ><br />
       Created:
       <span v-if="o.created_at">
@@ -138,31 +148,35 @@ function toggleOrder(orderId: number) {
 
       <div v-if="expandedOrders[o.id]">
         <div>
-          <b>Tests & Results:</b><br />
-          <div v-for="tid in o.test_ids" :key="tid">
-            🧪 {{ tests.find((t) => t.id === tid)?.name || tid }}:
-            <span
-              v-for="r in o.results.filter((res) => res.test_id === tid)"
-              :key="r.id"
-            >
-              Value: {{ r.value || "N/A" }} {{ r.units || "-" }} | Flags:
-              {{ r.flags || "-" }} | Specimen Status:
-              {{ r.specimen_status || "N" }}
-              <button
-                v-if="r.specimen_status !== 'C'"
-                @click="collectSpecimen(r.id)"
-              >
-                Collect
-              </button>
-            </span>
+          <b>Specimens:</b><br />
+          <div v-for="s in o.specimens" :key="s.specimen_id">
+            🧪 {{ s.specimen_id }} | Status: {{ s.status }}
+          </div>
+          <br />
+        </div>
+        <div>
+          <b>Test Runs & Results:</b><br />
+          <div v-for="run in o.test_runs" :key="run.id">
+            🔬 {{ testLabel(run.test_catalog_id) }} | Barcode:
+            {{ run.specimen_id }} | Status: {{ run.status }} | Specimen Status:
+            {{ specimenStatus(o, run.specimen_id) }}
+            <div v-if="run.results && run.results.length > 0">
+              <div v-for="r in run.results" :key="r.id">
+                Value: {{ r.value || "N/A" }} {{ r.units || "-" }} | Flags:
+                {{ r.flags || "-" }} | Completed:
+                {{ r.completed_at ? new Date(r.completed_at).toLocaleString() : "N/A" }}
+                | Verified: {{ r.verified }}
+              </div>
+            </div>
+            <div v-else>No results yet</div>
           </div>
           <br />
         </div>
         <div>
           <b>Services:</b><br />
-          <span v-for="sid in o.service_ids" :key="sid">
-            🩺 {{ services.find((s) => s.id === sid)?.name || sid }}<br />
-          </span>
+          <div v-for="sr in o.service_runs" :key="sr.id">
+            🩺 {{ serviceLabel(sr.service_catalog_id) }} | Status: {{ sr.status }}
+          </div>
 
           <p>Comment: {{ o.comment || "N/A" }}</p>
         </div>

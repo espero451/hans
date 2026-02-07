@@ -9,11 +9,6 @@ const owner = ref<any>(null);
 const order = ref<any>(null);
 const tests = ref<any[]>([]);
 const services = ref<any[]>([]);
-const selectedTestIds = ref<number[]>([]);
-const selectedServiceIds = ref<number[]>([]);
-const orderComment = ref("");
-
-const expandedOrders = ref<Record<number, boolean>>({});
 
 async function load() {
   const id = route.params.id;
@@ -45,17 +40,35 @@ async function load() {
   services.value = servicesRes.data;
 }
 
-async function collectSpecimen(resultId: number) {
-  await api.patch(`/results/${resultId}/collect`);
-  load();
+onMounted(load);
+
+function testLabel(testCatalogId: number) {
+  const test = tests.value.find((t) => t.id === testCatalogId);
+  return test ? test.code || test.name : testCatalogId;
 }
 
-onMounted(load);
+function serviceLabel(serviceCatalogId: number) {
+  const service = services.value.find((s) => s.id === serviceCatalogId);
+  return service ? service.name : serviceCatalogId;
+}
+
+function specimenStatus(specimenId: string) {
+  const specimen = order.value?.specimens?.find(
+    (s: any) => s.specimen_id === specimenId
+  );
+  return specimen?.status || "N/A";
+}
+
+async function collectSpecimen(specimenId: string) {
+  await api.patch(`/orders/barcode/${specimenId}/collect`);
+  await load();
+}
+
 </script>
 
 <template>
   <div v-if="patient">
-    <h2>Order #{{ order.id }} [Status: {{ order.status || "N/A" }}]</h2>
+    <h2>Order #{{ order.id }} {{ order.archived ? "[archived]" : "" }}</h2>
     Created: {{ new Date(order.created_at).toLocaleString() }}
 
     <p v-if="patient.name">
@@ -77,34 +90,41 @@ onMounted(load);
       style="border: 1px solid #ccc; padding: 8px 8px 0px; margin: 8px 0"
     >
       <div>
-        <div v-if="order.test_ids.length > 0">
-          <b>Tests & Results:</b><br />
-          <div v-for="tid in order.test_ids" :key="tid">
-            🧪 {{ tests.find((t) => t.id === tid)?.name || tid }}:
-            <span
-              v-for="r in order.results.filter((res) => res.test_id === tid)"
-              :key="r.id"
-            >
-              Value: {{ r.value || "N/A" }} {{ r.units || "" }} | Flags:
-              {{ r.flags || "-" }} | {{ r.specimen_id }} Specimen Status:
-              {{ r.specimen_status || "N" }}
-              <button
-                v-if="r.specimen_status !== 'C'"
-                @click="collectSpecimen(r.id)"
-              >
-                Collect
-              </button>
-              | Verified: {{ r.verified }}
-            </span>
-          </div>
+        <b>Specimens:</b><br />
+        <div v-for="s in order.specimens" :key="s.specimen_id">
+          🧪 {{ s.specimen_id }} | Status: {{ s.status }}
         </div>
         <br />
       </div>
-      <div v-if="order.service_ids.length > 0">
+      <div>
+        <b>Test Runs & Results:</b><br />
+        <div v-for="run in order.test_runs" :key="run.id">
+          🔬 {{ testLabel(run.test_catalog_id) }} | Barcode:
+          {{ run.specimen_id }} | Status: {{ run.status }} | Specimen Status:
+          {{ specimenStatus(run.specimen_id) }}
+          <button
+            @click="collectSpecimen(run.specimen_id)"
+            :disabled="specimenStatus(run.specimen_id) === 'COLLECTED'"
+          >
+            Collect
+          </button>
+          <div v-if="run.results && run.results.length > 0">
+            <div v-for="r in run.results" :key="r.id">
+              Value: {{ r.value || "N/A" }} {{ r.units || "" }} | Flags:
+              {{ r.flags || "-" }} | Completed:
+              {{ r.completed_at ? new Date(r.completed_at).toLocaleString() : "N/A" }}
+              | Verified: {{ r.verified }}
+            </div>
+          </div>
+          <div v-else>No results yet</div>
+        </div>
+        <br />
+      </div>
+      <div>
         <b>Services:</b><br />
-        <span v-for="sid in order.service_ids" :key="sid">
-          🩺 {{ services.find((s) => s.id === sid)?.name || sid }}<br />
-        </span>
+        <div v-for="sr in order.service_runs" :key="sr.id">
+          🩺 {{ serviceLabel(sr.service_catalog_id) }} | Status: {{ sr.status }}
+        </div>
 
         <p>Comment: {{ order.comment || "N/A" }}</p>
       </div>

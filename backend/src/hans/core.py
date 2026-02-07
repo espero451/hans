@@ -18,7 +18,8 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-print("Backend LIS started...")
+print("Hans LIS started...")
+
 
 # ---------------- FastAPI APP ----------------
 

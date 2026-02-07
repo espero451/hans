@@ -1,0 +1,34 @@
+interface_name: astm_base
+mode: query
+
+server:
+  host: 127.0.0.1
+  port: 5100
+
+frame:
+  size: 240
+  validate_checksum: false
+
+delimiters:
+  field: "|"
+  component: "^"
+  repeat: "\\"
+  escape: "&"
+  record: "\r"
+
+query:
+  barcode_field_indexes: [2, 3]
+  allow_component_split: true
+
+response:
+  include_patient: true
+  send_empty_on_missing: true
+
+translation:
+  tests:
+    - test_catalog_id: 1
+      code: GLU
+    - test_catalog_id: 2
+      code: BUN
+
+trace_dir: "../prod/instruments"

@@ -1,6 +1,7 @@
 <template>
 
-<h2>Hans LIS</h2>
+<img src="/assets/hans.png" width="100"> 
+<!--<h2>Hans LIS</h2>-->
 
   <div>
     <!-- Top navigation -->

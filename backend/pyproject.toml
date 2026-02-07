@@ -16,7 +16,8 @@ dependencies = [
     "passlib[bcrypt] (>=1.7.4,<2.0.0)",
     "python-multipart (>=0.0.22,<0.0.23)",
     "bcrypt (<4.1)",
-    "pyjwt (>=2.11.0,<3.0.0)"
+    "pyjwt (>=2.11.0,<3.0.0)",
+    "pyyaml (>=6.0.2,<7.0.0)"
 ]
 packages = [{ include = "hans", from = "src" }]
 

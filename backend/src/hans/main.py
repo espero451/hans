@@ -1,7 +1,9 @@
+from sqlalchemy import text
+
 from hans.core import app
 from hans.db import engine, Base
 
-from hans import owners, patients, orders, services, tests, specimens, auth
+from hans import owners, patients, orders, services, tests, specimens, auth, instruments
 
 
 # app.include_router(auth_router, prefix="/auth", tags=["auth"])
@@ -16,4 +18,5 @@ from hans import owners, patients, orders, services, tests, specimens, auth
 @app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE SEQUENCE IF NOT EXISTS specimen_barcode_seq"))
         await conn.run_sync(Base.metadata.create_all)
