@@ -13,19 +13,20 @@ from hans.core import app, audit_log
 
 # ---------------- MODELS ----------------
 
+class ServiceCatalogCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+
+
 class ServiceCatalogRead(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
     price: float
+
     class Config:
         from_attributes = True
-
-
-class ServiceCatalogCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    price: float
 
 
 # ---------------- SCHEMAS ----------------

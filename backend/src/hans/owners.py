@@ -90,4 +90,3 @@ async def delete_owner(owner_id: int, db: AsyncSession = Depends(get_db), user: 
     await db.commit()
     audit_log(user.id, f"Deleted owner {owner_id}")
     return {"ok": True}
-

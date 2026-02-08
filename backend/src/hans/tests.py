@@ -13,6 +13,13 @@ from hans.core import app, audit_log
 
 # ---------------- MODELS ----------------
 
+class TestCatalogCreate(BaseModel):
+    code: str
+    description: Optional[str] = None
+    price: float
+    specimen_type_id: int
+
+
 class TestCatalogRead(BaseModel):
     id: int
     code: str
@@ -22,12 +29,6 @@ class TestCatalogRead(BaseModel):
 
     class Config:
         from_attributes = True
-
-class TestCatalogCreate(BaseModel):
-    code: str
-    description: Optional[str] = None
-    price: float
-    specimen_type_id: int
 
 
 # ---------------- SCHEMAS ----------------

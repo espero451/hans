@@ -16,6 +16,13 @@ from hans.services import ServiceCatalog
 
 # ---------------- SCHEMAS ----------------
 
+class OrderCreate(BaseModel):
+    patient_id: int
+    test_catalog_ids: List[int] = []
+    service_catalog_ids: List[int] = []
+    comment: Optional[str] = None
+
+
 class ResultRead(BaseModel):
     id: int
     test_run_id: int
@@ -81,13 +88,6 @@ class OrderRead(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class OrderCreate(BaseModel):
-    patient_id: int
-    test_catalog_ids: List[int] = []
-    service_catalog_ids: List[int] = []
-    comment: Optional[str] = None
 
 
 # ---------------- MODELS ----------------

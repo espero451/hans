@@ -2,9 +2,12 @@
   <img src="frontend/assets/hans.png" alt="Hans LIS" width="150">
 </p>
 
+<!-- > [!CAUTION]
+> 🚨 THIS PROJECT IS UNDER ACTIVE DEVELOPMENT. USE AT YOUR OWN RISK. 🚨 -->
+
 # Hans LIS
 
-Minimalistic Veterinary Laboratory Information System (LIS). Early development stage.
+Minimalistic Veterinary Laboratory Information System (LIS). The project is under active development.
 
 ## Overview
 
@@ -42,8 +45,6 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 <details>
 <summary>Database Structure (.svg)</summary>
 
-<!-- [![Database schema](docs/schema.svg)](docs/schema.svg) -->
-
 <p align="center">
   <img src="docs/schema.svg" alt="Database schema" width="100%">
 </p>
@@ -74,12 +75,10 @@ Note: Database tables are auto-created on startup. No initial data seeding yet.
 - No pagination on list endpoints (except owners/patients partial)
 - No role-based access control (all authenticated users have full access)
 - No patient/owner search or filtering
-- No reporting, statistics, or export features
-- No file attachments (e.g., PDFs, images)
+- No reporting and export features
 - ~~No frontend integration yet (CORS configured for http://localhost:5173)~~
 - Minimal input validation beyond Pydantic
 - No tests (unit/integration)
-- Audit logs are plain files (consider database table or structured logging)
 - ~~Write Translation Table functionality~~
 - ~~Write instrument-interfaces~~
 

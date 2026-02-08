@@ -13,6 +13,13 @@ from hans.core import app, audit_log
 
 # ---------------- SCHEMAS ----------------
 
+class SpecimenTypeCreate(BaseModel):
+    code: str
+    name: str
+    tube: Optional[str] = None
+    description: Optional[str] = None
+
+
 class SpecimenTypeRead(BaseModel):
     id: int
     code: str
@@ -22,13 +29,6 @@ class SpecimenTypeRead(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class SpecimenTypeCreate(BaseModel):
-    code: str
-    name: str
-    tube: Optional[str] = None
-    description: Optional[str] = None
 
 
 # ---------------- MODELS ----------------
