@@ -1,7 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
+import { useRouter } from "vue-router";
 import { getOwners } from "../api/owners";
 import api from "../api/http";
+import Button from "primevue/button";
+import DataTable from "primevue/datatable";
+import Column from "primevue/column";
+import InputText from "primevue/inputtext";
+import Dropdown from "primevue/dropdown";
+import DatePicker from "primevue/datepicker";
 
 // Состояние пациентов
 const patients = ref<any[]>([]);
@@ -9,7 +16,22 @@ const name = ref("");
 const species = ref("");
 const owner_id = ref<number | null>(null);
 const owners = ref<any[]>([]);
-const birth_date = ref<string | null>(null);
+const birth_date = ref<Date | null>(null);
+
+const router = useRouter();
+
+const speciesOptions = [
+  { label: "Cat", value: "Cat" },
+  { label: "Dog", value: "Dog" },
+  { label: "Dinosaur", value: "Dinosaur" },
+];
+
+const ownerOptions = computed(() =>
+  owners.value.map((o) => ({
+    label: `${o.first_name} ${o.last_name}`,
+    value: o.id,
+  }))
+);
 
 // Loading patients
 async function loadPatients() {
@@ -29,7 +51,9 @@ async function addPatient() {
     name: name.value,
     species: species.value,
     owner_id: owner_id.value,
-    birth_date: birth_date.value || null,
+    birth_date: birth_date.value
+      ? birth_date.value.toISOString().split("T")[0]
+      : null,
   });
   name.value = "";
   species.value = "";
@@ -65,75 +89,80 @@ onMounted(() => {
   loadPatients();
   loadOwners();
 });
+
+function ownerLabel(ownerId: number) {
+  const owner = owners.value.find((o) => o.id === ownerId);
+  return owner ? `${owner.first_name} ${owner.last_name}` : ownerId;
+}
 </script>
 
 <template>
-  <div>
+  <div class="p-4 flex flex-column gap-3">
     <h2>Patients</h2>
 
-    <div class="form" style="margin-bottom: 16px">
-      <input v-model="name" placeholder="Name" />
-      <select v-model="species">
-        <option disabled value="">Select species</option>
-        <option>Cat</option>
-        <option>Dog</option>
-        <option>Dinosaur</option>
-      </select>
-      <input type="date" v-model="birth_date" placeholder="Birth Date" />
-      <select v-model="owner_id">
-        <option disabled value="">Select owner</option>
-        <option v-for="o in owners" :key="o.id" :value="o.id">
-          {{ o.first_name }} {{ o.last_name }}
-        </option>
-      </select>
-      <button @click="addPatient">Add Patient</button>
+    <div class="surface-card p-3 border-round-xl shadow-1">
+      <div class="flex flex-wrap gap-2 align-items-center">
+        <InputText v-model="name" placeholder="Name" />
+        <Dropdown
+          v-model="species"
+          :options="speciesOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select species"
+        />
+        <DatePicker v-model="birth_date" placeholder="Birth Date" showIcon />
+        <Dropdown
+          v-model="owner_id"
+          :options="ownerOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select owner"
+        />
+        <Button label="Add Patient" @click="addPatient" />
+      </div>
     </div>
 
-    <!-- Patients table -->
-    <div
-      class="patients-table"
-      style="display: flex; flex-direction: column; gap: 4px"
-    >
-      <div
-        class="table-header"
-        style="
-          display: flex;
-          font-weight: bold;
-          padding: 4px;
-          border-bottom: 1px solid #ccc;
-        "
+    <div class="surface-card p-3 border-round-xl shadow-1">
+      <DataTable
+        :value="patients"
+        dataKey="id"
+        stripedRows
+        @row-click="(e) => router.push(`/patients/${e.data.id}`)"
       >
-        <div style="flex: 1">Name</div>
-        <div style="flex: 1">Species</div>
-        <div style="flex: 1">Birth Date</div>
-        <div style="flex: 1">Owner</div>
-        <div style="flex: 1">Actions</div>
-      </div>
-
-      <!-- Patients rows -->
-      <div
-        v-for="p in patients"
-        :key="p.id"
-        class="table-row"
-        style="
-          display: flex;
-          padding: 4px;
-          border-bottom: 1px solid #eee;
-          cursor: pointer;
-        "
-        @click="router.push(`/patients/${p.id}`)"
-      >
-        <div style="flex: 1">
-          <a :href="`/patients/${p.id}`">{{ p.name }}</a>
-        </div>
-        <div style="flex: 1">{{ p.species }}</div>
-        <div style="flex: 1">{{ p.birth_date || "-" }}</div>
-        <div style="flex: 1">{{ p.owner_id }}</div>
-        <div style="flex: 1">
-          <button @click.stop="updatePatient(p.id)">Edit</button>&nbsp;
-          <button @click.stop="deletePatient(p.id)">x</button>
-        </div>
-      </div>
+        <Column field="name" header="Name">
+          <template #body="{ data }">
+            <a :href="`/patients/${data.id}`">{{ data.name }}</a>
+          </template>
+        </Column>
+        <Column field="species" header="Species" />
+        <Column field="birth_date" header="Birth Date">
+          <template #body="{ data }">
+            {{ data.birth_date || "-" }}
+          </template>
+        </Column>
+        <Column header="Owner">
+          <template #body="{ data }">
+            {{ ownerLabel(data.owner_id) }}
+          </template>
+        </Column>
+        <Column header="Actions">
+          <template #body="{ data }">
+            <Button
+              label="Edit"
+              severity="secondary"
+              size="small"
+              @click.stop="updatePatient(data.id)"
+            />
+            <Button
+              label="Delete"
+              severity="danger"
+              size="small"
+              @click.stop="deletePatient(data.id)"
+              class="ml-2"
+            />
+          </template>
+        </Column>
+      </DataTable>
     </div>
   </div>
 </template>

@@ -6,6 +6,10 @@ import {
   deleteOwner,
   updateOwner,
 } from "../api/owners";
+import Button from "primevue/button";
+import DataTable from "primevue/datatable";
+import Column from "primevue/column";
+import InputText from "primevue/inputtext";
 
 interface Owner {
   id: number;
@@ -79,74 +83,79 @@ onMounted(load);
 </script>
 
 <template>
-  <div>
+  <div class="p-4 flex flex-column gap-3">
     <h2>Owners</h2>
 
-    <div style="margin-bottom: 16px">
-      <input v-model="first_name" placeholder="First name" />
-      <input v-model="last_name" placeholder="Last name" />
-      <input v-model="email" placeholder="Email" />
-      <input v-model="phone" placeholder="Phone" />
-      <button @click="addOwner">Add</button>
+    <div class="surface-card p-3 border-round-xl shadow-1">
+      <div class="flex flex-wrap gap-2 align-items-center">
+        <InputText v-model="first_name" placeholder="First name" />
+        <InputText v-model="last_name" placeholder="Last name" />
+        <InputText v-model="email" placeholder="Email" />
+        <InputText v-model="phone" placeholder="Phone" />
+        <Button label="Add" @click="addOwner" />
+      </div>
     </div>
 
-    <div
-      class="owners-table"
-      style="display: flex; flex-direction: column; gap: 4px"
-    >
-      <div
-        class="table-header"
-        style="
-          display: flex;
-          font-weight: bold;
-          padding: 4px;
-          border-bottom: 1px solid #ccc;
-        "
-      >
-        <div style="flex: 1">Owner</div>
-        <div style="flex: 1">E-mail</div>
-        <div style="flex: 1">Phone</div>
-        <!-- <div style="flex:1">ID</div> -->
-        <div style="flex: 1">Actions</div>
-      </div>
-
-      <div
-        v-for="o in owners"
-        :key="o.id"
-        class="table-row"
-        style="display: flex; padding: 4px; border-bottom: 1px solid #eee"
-      >
-        <template v-if="editingId === o.id">
-          <div style="flex: 1">
-            <input v-model="editFirstName" placeholder="First name" />
-            <input v-model="editLastName" placeholder="Last name" />
-          </div>
-          <div style="flex: 1">
-            <input v-model="editEmail" placeholder="Email" />
-          </div>
-          <div style="flex: 1">
-            <input v-model="editPhone" placeholder="Phone" />
-          </div>
-          <div style="flex: 1">
-            <button @click="saveEdit(o.id)">💾</button>&nbsp;
-            <button @click="editingId = null">Cancel</button>
-          </div>
-        </template>
-        <template v-else>
-          <div style="flex: 1">{{ o.first_name }} {{ o.last_name }}</div>
-          <div style="flex: 1">
-            <span v-if="o.email">{{ o.email }}</span>
-          </div>
-          <div style="flex: 1">
-            <span v-if="o.phone">{{ o.phone }}</span>
-          </div>
-          <!-- <div style="flex:1">{{ p.owner_id }}</div> -->
-          <div style="flex: 1">
-            <button @click.stop="startEdit(o)">Edit</button>&nbsp;
-            <button @click="deleteOwner(o.id).then(load)">🗙</button>
-          </div>
-        </template>
-      </div>
+    <div class="surface-card p-3 border-round-xl shadow-1">
+      <DataTable :value="owners" dataKey="id" stripedRows>
+        <Column header="Owner">
+          <template #body="{ data }">
+            <div v-if="editingId === data.id" class="flex gap-2">
+              <InputText v-model="editFirstName" placeholder="First name" />
+              <InputText v-model="editLastName" placeholder="Last name" />
+            </div>
+            <span v-else>{{ data.first_name }} {{ data.last_name }}</span>
+          </template>
+        </Column>
+        <Column header="E-mail">
+          <template #body="{ data }">
+            <div v-if="editingId === data.id">
+              <InputText v-model="editEmail" placeholder="Email" />
+            </div>
+            <span v-else>{{ data.email || "-" }}</span>
+          </template>
+        </Column>
+        <Column header="Phone">
+          <template #body="{ data }">
+            <div v-if="editingId === data.id">
+              <InputText v-model="editPhone" placeholder="Phone" />
+            </div>
+            <span v-else>{{ data.phone || "-" }}</span>
+          </template>
+        </Column>
+        <Column header="Actions">
+          <template #body="{ data }">
+            <div v-if="editingId === data.id" class="flex gap-2">
+              <Button
+                label="Save"
+                size="small"
+                severity="success"
+                @click="saveEdit(data.id)"
+              />
+              <Button
+                label="Cancel"
+                size="small"
+                severity="secondary"
+                @click="editingId = null"
+              />
+            </div>
+            <div v-else class="flex gap-2">
+              <Button
+                label="Edit"
+                size="small"
+                severity="secondary"
+                @click.stop="startEdit(data)"
+              />
+              <Button
+                label="Delete"
+                size="small"
+                severity="danger"
+                @click="deleteOwner(data.id).then(load)"
+              />
+            </div>
+          </template>
+        </Column>
+      </DataTable>
     </div>
   </div>
 </template>

@@ -1,6 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import api from "../api/http";
+import Button from "primevue/button";
+import DataTable from "primevue/datatable";
+import Column from "primevue/column";
+import InputText from "primevue/inputtext";
+import InputNumber from "primevue/inputnumber";
+import Dropdown from "primevue/dropdown";
+import Textarea from "primevue/textarea";
+import Card from "primevue/card";
 
 // TODO:
 // import { getTests, createTest, updateTest, deleteTest } from "../api/tests"
@@ -28,6 +36,13 @@ const newServicePrice = ref<number | null>(null);
 
 // List of existed specimens for test setup
 const specimenOptions = ref<any[]>([]);
+
+const specimenTypeOptions = computed(() =>
+  specimenOptions.value.map((s) => ({
+    label: `${s.name} (${s.code})`,
+    value: s.id,
+  }))
+);
 
 // ---------- Load data ----------
 async function loadTests() {
@@ -124,167 +139,116 @@ async function deleteService(id: number) {
 </script>
 
 <template>
-  <div>
+  <div class="p-4 flex flex-column gap-3">
     <h2>Settings</h2>
 
     <!-- <pre>{{ specimenOptions }}</pre> -->
 
     <!-- ================= TESTS ================= -->
 
-    <section style="margin-bottom: 24px">
-      <h3>Tests</h3>
-      <div style="margin-bottom: 8px">
-        <input v-model="newTestCode" placeholder="Test Code" />
-        <select v-model.number="newTestSpecimenTypeId">
-          <option disabled :value="null">Select Specimen</option>
-          <option v-for="s in specimenOptions" :key="s.id" :value="s.id">
-            {{ s.name }} ({{ s.code }})
-          </option>
-        </select>
-        <input v-model="newTestDescription" placeholder="Description" />
-        <input type="number" v-model="newTestPrice" placeholder="Price" />
-        <button @click="addTest">💾</button>
-      </div>
-
-      <div
-        style="
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          border: 1px solid #ccc;
-          padding: 4px;
-        "
-      >
-        <div
-          style="
-            display: flex;
-            font-weight: bold;
-            padding: 4px;
-            border-bottom: 1px solid #ccc;
-          "
-        >
-          <div style="flex: 1">ID</div>
-          <div style="flex: 2">Code</div>
-          <div style="flex: 2">Specimen Type</div>
-          <div style="flex: 1">Price</div>
-        </div>
-        <div
-          v-for="t in tests"
-          :key="t.id"
-          style="display: flex; padding: 4px; border-bottom: 1px solid #eee"
-        >
-          <div style="flex: 1">{{ t.id }}</div>
-          <div style="flex: 2">{{ t.code }}</div>
-          <div style="flex: 2">{{ t.specimen_type_id }}</div>
-          <div style="flex: 1">${{ t.price }}</div>
-          <div>
-            <button @click="deleteTest(t.id).then(loadTests)">🗙</button>
+    <section>
+      <Card>
+        <template #title>Tests</template>
+        <template #content>
+          <div class="flex flex-wrap gap-2 align-items-center mb-2">
+            <InputText v-model="newTestCode" placeholder="Test Code" />
+            <Dropdown
+              v-model="newTestSpecimenTypeId"
+              :options="specimenTypeOptions"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Select Specimen"
+            />
+            <InputText v-model="newTestDescription" placeholder="Description" />
+            <InputNumber v-model="newTestPrice" placeholder="Price" />
+            <Button label="Add" @click="addTest" />
           </div>
-        </div>
-      </div>
+
+          <DataTable :value="tests" dataKey="id" stripedRows class="mt-2">
+            <Column field="id" header="ID" />
+            <Column field="code" header="Code" />
+            <Column field="specimen_type_id" header="Specimen Type" />
+            <Column field="price" header="Price" />
+            <Column header="Actions">
+              <template #body="{ data }">
+                <Button
+                  label="Delete"
+                  severity="danger"
+                  size="small"
+                  @click="deleteTest(data.id).then(loadTests)"
+                />
+              </template>
+            </Column>
+          </DataTable>
+        </template>
+      </Card>
     </section>
 
     <!-- ================= SPECIMENS ================= -->
 
-    <section style="margin-bottom: 24px">
-      <h3>Specimens</h3>
-      <div style="margin-bottom: 8px">
-        <input v-model="newSpecimenCode" placeholder="Specimen Code" />
-        <input v-model="newSpecimenName" placeholder="Name" />
-        <input v-model="newSpecimenTube" placeholder="Tube" />
-        <input v-model="newSpecimenDesc" placeholder="Description" />
-        <button @click="addSpecimen">💾</button>
-      </div>
-
-      <div
-        style="
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          border: 1px solid #ccc;
-          padding: 4px;
-        "
-      >
-        <div
-          style="
-            display: flex;
-            font-weight: bold;
-            padding: 4px;
-            border-bottom: 1px solid #ccc;
-          "
-        >
-          <div style="flex: 1">ID</div>
-          <div style="flex: 2">Code</div>
-          <div style="flex: 1">Name</div>
-          <div style="flex: 1">Tube</div>
-          <div style="flex: 2">Description</div>
-        </div>
-        <div
-          v-for="s in specimens"
-          :key="s.id"
-          style="display: flex; padding: 4px; border-bottom: 1px solid #eee"
-        >
-          <div style="flex: 1">{{ s.id }}</div>
-          <div style="flex: 2">{{ s.code }}</div>
-          <div style="flex: 1">{{ s.name }}</div>
-          <div style="flex: 1">{{ s.tube }}</div>
-          <div style="flex: 2">{{ s.description }}</div>
-          <div>
-            <button @click="deleteSpecimen(s.id).then(loadSpecimens)">🗙</button>
+    <section>
+      <Card>
+        <template #title>Specimens</template>
+        <template #content>
+          <div class="flex flex-wrap gap-2 align-items-center mb-2">
+            <InputText v-model="newSpecimenCode" placeholder="Specimen Code" />
+            <InputText v-model="newSpecimenName" placeholder="Name" />
+            <InputText v-model="newSpecimenTube" placeholder="Tube" />
+            <Textarea v-model="newSpecimenDesc" placeholder="Description" />
+            <Button label="Add" @click="addSpecimen" />
           </div>
-        </div>
-      </div>
+
+          <DataTable :value="specimens" dataKey="id" stripedRows class="mt-2">
+            <Column field="id" header="ID" />
+            <Column field="code" header="Code" />
+            <Column field="name" header="Name" />
+            <Column field="tube" header="Tube" />
+            <Column field="description" header="Description" />
+            <Column header="Actions">
+              <template #body="{ data }">
+                <Button
+                  label="Delete"
+                  severity="danger"
+                  size="small"
+                  @click="deleteSpecimen(data.id).then(loadSpecimens)"
+                />
+              </template>
+            </Column>
+          </DataTable>
+        </template>
+      </Card>
     </section>
 
     <!-- ================= SERVICES ================= -->
 
-    <section style="margin-bottom: 24px">
-      <h3>Services</h3>
-
-      <div style="margin-bottom: 8px">
-        <input v-model="newServiceName" placeholder="Service Name" />
-        <input v-model="newServiceDesc" placeholder="Description" />
-        <input type="number" v-model="newServicePrice" placeholder="Price" />
-        <button @click="addService">💾</button>
-      </div>
-
-      <div
-        style="
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          border: 1px solid #ccc;
-          padding: 4px;
-        "
-      >
-        <div
-          style="
-            display: flex;
-            font-weight: bold;
-            padding: 4px;
-            border-bottom: 1px solid #ccc;
-          "
-        >
-          <!-- <div style="flex:1">ID</div> -->
-          <div style="flex: 2">Name</div>
-          <div style="flex: 3">Description</div>
-          <div style="flex: 1">Price</div>
-          <div></div>
-        </div>
-        <div
-          v-for="srv in services"
-          :key="srv.id"
-          style="display: flex; padding: 4px; border-bottom: 1px solid #eee"
-        >
-          <!-- <div style="flex:1">{{ srv.id }}</div> -->
-          <div style="flex: 2">{{ srv.name }}</div>
-          <div style="flex: 3">{{ srv.description }}</div>
-          <div style="flex: 1">${{ srv.price }}</div>
-          <div>
-            <button @click="deleteService(srv.id).then(loadServices)">🗙</button>
+    <section>
+      <Card>
+        <template #title>Services</template>
+        <template #content>
+          <div class="flex flex-wrap gap-2 align-items-center mb-2">
+            <InputText v-model="newServiceName" placeholder="Service Name" />
+            <Textarea v-model="newServiceDesc" placeholder="Description" />
+            <InputNumber v-model="newServicePrice" placeholder="Price" />
+            <Button label="Add" @click="addService" />
           </div>
-        </div>
-      </div>
+
+          <DataTable :value="services" dataKey="id" stripedRows class="mt-2">
+            <Column field="name" header="Name" />
+            <Column field="description" header="Description" />
+            <Column field="price" header="Price" />
+            <Column header="Actions">
+              <template #body="{ data }">
+                <Button
+                  label="Delete"
+                  severity="danger"
+                  size="small"
+                  @click="deleteService(data.id).then(loadServices)"
+                />
+              </template>
+            </Column>
+          </DataTable>
+        </template>
+      </Card>
     </section>
   </div>
 </template>

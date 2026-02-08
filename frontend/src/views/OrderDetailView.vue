@@ -2,6 +2,12 @@
 import { ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import api from "../api/http";
+import Button from "primevue/button";
+import Card from "primevue/card";
+import DataTable from "primevue/datatable";
+import Column from "primevue/column";
+import Tag from "primevue/tag";
+import Divider from "primevue/divider";
 
 const route = useRoute();
 const patient = ref<any>(null);
@@ -67,69 +73,117 @@ async function collectSpecimen(specimenId: string) {
 </script>
 
 <template>
-  <div v-if="patient">
-    <h2>Order #{{ order.id }} {{ order.archived ? "[archived]" : "" }}</h2>
-    Created: {{ new Date(order.created_at).toLocaleString() }}
+  <div v-if="patient" class="p-4 flex flex-column gap-3">
+    <Card>
+      <template #title>
+        Order #{{ order.id }}
+        <Tag
+          :value="order.archived ? 'Archived' : 'Active'"
+          :severity="order.archived ? 'secondary' : 'success'"
+          style="margin-left: 0.5rem"
+        />
+      </template>
+      <template #content>
+        <div>Created: {{ new Date(order.created_at).toLocaleString() }}</div>
+        <p v-if="patient.name">
+          Patient:
+          <a :href="`/patients/${order.patient_id}`">{{ patient.name }}</a> ({{
+            patient.species
+          }})
+        </p>
+        <p v-if="patient.breed">Breed: {{ patient.breed }}</p>
+        <p v-if="patient.birth_date">Birth Date: {{ patient.birth_date }}</p>
+        <p v-if="owner">
+          Owner: {{ owner.first_name }} {{ owner.last_name }} ({{ owner.email }},
+          {{ owner.phone }})
+        </p>
+        <p v-else>Loading owner...</p>
+      </template>
+    </Card>
 
-    <p v-if="patient.name">
-      Patient:
-      <a :href="`/patients/${order.patient_id}`">{{ patient.name }}</a> ({{
-        patient.species
-      }})
-    </p>
-    <p v-if="patient.breed">Breed: {{ patient.breed }}</p>
-    <p v-if="patient.birth_date">Birth Date: {{ patient.birth_date }}</p>
-    <p v-if="owner">
-      Owner: {{ owner.first_name }} {{ owner.last_name }} ({{ owner.email }},
-      {{ owner.phone }})
-    </p>
-    <p v-else>Loading owner...</p>
+    <Card v-if="order.id">
+      <template #title>Specimens</template>
+      <template #content>
+        <DataTable :value="order.specimens" dataKey="specimen_id" stripedRows>
+          <Column field="specimen_id" header="Barcode" />
+          <Column header="Status">
+            <template #body="{ data }">
+              <Tag :value="data.status" severity="info" />
+            </template>
+          </Column>
+        </DataTable>
+      </template>
+    </Card>
 
-    <div
-      v-if="order.id"
-      style="border: 1px solid #ccc; padding: 8px 8px 0px; margin: 8px 0"
-    >
-      <div>
-        <b>Specimens:</b><br />
-        <div v-for="s in order.specimens" :key="s.specimen_id">
-          🧪 {{ s.specimen_id }} | Status: {{ s.status }}
-        </div>
-        <br />
-      </div>
-      <div>
-        <b>Test Runs & Results:</b><br />
-        <div v-for="run in order.test_runs" :key="run.id">
-          🔬 {{ testLabel(run.test_catalog_id) }} | Barcode:
-          {{ run.specimen_id }} | Status: {{ run.status }} | Specimen Status:
-          {{ specimenStatus(run.specimen_id) }}
-          <button
-            @click="collectSpecimen(run.specimen_id)"
-            :disabled="specimenStatus(run.specimen_id) === 'COLLECTED'"
-          >
-            Collect
-          </button>
-          <div v-if="run.results && run.results.length > 0">
-            <div v-for="r in run.results" :key="r.id">
-              Value: {{ r.value || "N/A" }} {{ r.units || "" }} | Flags:
-              {{ r.flags || "-" }} | Completed:
-              {{ r.completed_at ? new Date(r.completed_at).toLocaleString() : "N/A" }}
-              | Verified: {{ r.verified }}
-            </div>
-          </div>
-          <div v-else>No results yet</div>
-        </div>
-        <br />
-      </div>
-      <div>
-        <b>Services:</b><br />
-        <div v-for="sr in order.service_runs" :key="sr.id">
-          🩺 {{ serviceLabel(sr.service_catalog_id) }} | Status: {{ sr.status }}
-        </div>
+    <Divider />
 
-        <p>Comment: {{ order.comment || "N/A" }}</p>
-      </div>
-    </div>
+    <Card>
+      <template #title>Test Runs & Results</template>
+      <template #content>
+        <DataTable :value="order.test_runs" dataKey="id" stripedRows>
+          <Column header="Test">
+            <template #body="{ data }">
+              {{ testLabel(data.test_catalog_id) }}
+            </template>
+          </Column>
+          <Column field="specimen_id" header="Barcode" />
+          <Column header="Status">
+            <template #body="{ data }">
+              <Tag :value="data.status" severity="warning" />
+            </template>
+          </Column>
+          <Column header="Specimen Status">
+            <template #body="{ data }">
+              <Tag :value="specimenStatus(data.specimen_id)" severity="info" />
+            </template>
+          </Column>
+          <Column header="Results">
+            <template #body="{ data }">
+              <div v-if="data.results && data.results.length > 0">
+                <div v-for="r in data.results" :key="r.id">
+                  {{ r.value || "N/A" }} {{ r.units || "" }} | Flags:
+                  {{ r.flags || "-" }} | Completed:
+                  {{
+                    r.completed_at
+                      ? new Date(r.completed_at).toLocaleString()
+                      : "N/A"
+                  }}
+                </div>
+              </div>
+              <span v-else>No results yet</span>
+            </template>
+          </Column>
+          <Column header="Actions">
+            <template #body="{ data }">
+              <Button
+                label="Collect"
+                size="small"
+                @click="collectSpecimen(data.specimen_id)"
+                :disabled="specimenStatus(data.specimen_id) === 'COLLECTED'"
+              />
+            </template>
+          </Column>
+        </DataTable>
+      </template>
+    </Card>
 
-    <!-- <pre>{{ order }}</pre> -->
+    <Card>
+      <template #title>Services</template>
+      <template #content>
+        <DataTable :value="order.service_runs" dataKey="id" stripedRows>
+          <Column header="Service">
+            <template #body="{ data }">
+              {{ serviceLabel(data.service_catalog_id) }}
+            </template>
+          </Column>
+          <Column header="Status">
+            <template #body="{ data }">
+              <Tag :value="data.status" severity="info" />
+            </template>
+          </Column>
+        </DataTable>
+        <p style="margin-top: 0.75rem">Comment: {{ order.comment || "N/A" }}</p>
+      </template>
+    </Card>
   </div>
 </template>
