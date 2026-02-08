@@ -194,8 +194,7 @@ onMounted(async () => {
         dataKey="id"
         stripedRows
         :emptyMessage="'No orders found'"
-        @row-click="(e) => router.push(`/orders/${e.data.id}`)"
-      >
+        @row-click="(e) => router.push(`/orders/${e.data.id}`)">
         <Column header="Order">
           <template #body="{ data }">
             <a :href="`/orders/${data.id}`">#{{ data.id }}</a>
