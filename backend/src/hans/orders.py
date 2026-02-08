@@ -7,9 +7,9 @@ from sqlalchemy import ForeignKey, select, text, String, Numeric, Enum as SAEnum
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship, selectinload
 
-from hans.auth import User, get_current_user
-from hans.core import app, audit_log
-from hans.db import Base, get_db
+from hans.core.auth import User, get_current_user
+from hans.core.core import app, audit_log
+from hans.core.db import Base, get_db
 from hans.tests import TestCatalog
 from hans.services import ServiceCatalog
 

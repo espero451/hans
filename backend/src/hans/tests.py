@@ -6,9 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import ForeignKey, String, Numeric
 
-from hans.db import Base, get_db
-from hans.auth import get_current_user, User
-from hans.core import app, audit_log
+from hans.core.db import Base, get_db
+from hans.core.auth import get_current_user, User
+from hans.core.core import app, audit_log
 
 
 # ---------------- MODELS ----------------

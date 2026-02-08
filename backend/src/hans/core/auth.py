@@ -1,0 +1,91 @@
+from datetime import datetime, timedelta
+from fastapi import Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import jwt, JWTError
+from passlib.context import CryptContext
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import Mapped, mapped_column
+
+# Core application objects and settings (FastAPI app instance + env config)
+from hans.core.core import app, settings
+# Database session factory and SQLAlchemy declarative base
+from hans.core.db import get_db, Base, AsyncSession
+
+
+# Password hashing context (bcrypt). Used both to hash new passwords
+# and to verify user-submitted passwords during login.
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# OAuth2 bearer token extraction dependency.
+# FastAPI will read the Authorization: Bearer <token> header.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+
+# Hash a plain-text password before storing it in the database.
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+# Check whether a plain-text password matches its stored hash.
+def verify_password(password: str, hashed: str) -> bool:
+    return pwd_context.verify(password, hashed)
+
+# Create a signed JWT access token with an expiration time.
+# The token "sub" claim is stored as a string (username).
+def create_access_token(data: dict, expires_delta: timedelta):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + expires_delta
+    to_encode["exp"] = int(expire.timestamp())
+    to_encode["sub"] = str(to_encode["sub"])
+    return jwt.encode(
+        to_encode,
+        settings.secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+# Login endpoint: validates credentials and returns a bearer token.
+# OAuth2PasswordRequestForm provides "username" and "password" from the request body.
+@app.post("/auth/token")
+async def login(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.username == form.username))
+    user = result.scalar_one_or_none()
+    if not user or not verify_password(form.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    token = create_access_token({"sub": user.username}, timedelta(minutes=settings.access_token_expire_minutes))
+    return {"access_token": token, "token_type": "bearer"}
+
+
+# ---------------- MODELS ----------------
+
+# SQLAlchemy model for application users.
+# Stores credentials and role metadata for authentication and authorization.
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(unique=True)
+    email: Mapped[str]
+    hashed_password: Mapped[str]
+    role: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+
+# ---------------- DEPENDENCIES ----------------
+
+# FastAPI dependency to extract and validate the current user from a JWT.
+# Used by protected endpoints to enforce authentication.
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        # Decode and verify the JWT signature and claims.
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        username: str = payload["sub"]
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    # Load the user from the database by username stored in the token.
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user

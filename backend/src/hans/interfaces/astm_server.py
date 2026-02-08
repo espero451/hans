@@ -10,7 +10,7 @@ from typing import Iterable, Optional, List
 
 from sqlalchemy import select
 
-from hans.db import SessionLocal
+from hans.core.db import SessionLocal
 from hans.orders import Order, Specimen, TestRun
 from hans.patients import Patient
 from hans.tests import TestCatalog
