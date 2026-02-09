@@ -88,10 +88,5 @@ def _resolve_trace_dir(value: str | None, default: Path) -> Path:
 
 
 def _load_data(path: Path) -> dict:
-    suffix = path.suffix.lower()
     raw_text = path.read_text(encoding="utf-8")
-    if suffix in {".yaml", ".yml"}:
-        return yaml.safe_load(raw_text) or {}
-    if suffix == ".json":
-        return yaml.safe_load(raw_text) or {}
     return yaml.safe_load(raw_text) or {}

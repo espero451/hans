@@ -1,16 +1,29 @@
+# Basic instrument-interface model
+
+# Addressed to: `hans.interfaces.config_reader.InterfaceConfig`
+# Stable human-readable identifier used in logs and trace paths.
 interface_name: astm_base
+# Stored as `mode` (currently not referenced by the ASTM handler).
 mode: query
 
+# Addressed to: `hans.interfaces.server` handler resolver
+# Module name used to import the interface handler (`hans.interfaces.handlers.astm`).
 handler: astm
 
+# Addressed to: `hans.interfaces.server` listener setup
+# TCP server binds to this host/port for incoming instrument connections.
 server:
   host: 127.0.0.1
   port: 5100
 
+# Addressed to: `hans.interfaces.handlers.astm` framing and checksum validation
+# Outbound ASTM responses are framed to `size` bytes; checksum validation is enabled/disabled.
 frame:
   size: 240
   validate_checksum: false
 
+# Addressed to: `hans.interfaces.handlers.astm` parsing/serialization
+# Record/field/component separators used to parse incoming messages and build responses.
 delimiters:
   field: "|"
   component: "^"
@@ -18,14 +31,23 @@ delimiters:
   escape: "&"
   record: "\r"
 
+# Addressed to: `hans.interfaces.handlers.astm._extract_barcode`
+# How barcode is extracted from Q records (field indexes + component splitting).
 query:
   barcode_field_indexes: [2, 3]
   allow_component_split: true
 
+# Addressed to: `hans.interfaces.handlers.astm._build_query_response` (include_patient)
+# Controls whether patient P records are included; `send_empty_on_missing`
+# (not used by the ASTM handler yet)
 response:
   include_patient: true
   send_empty_on_missing: true
 
+### TRANSLATION TABLE
+# Addressed to: `hans.interfaces.translation.TranslationTable.from_data`
+# Maps LIS test codes to instrument-specific codes and back.
+# Each item in 'tests' creates one bidirectional code mapping.
 translation:
   tests:
     - lis_code: "GLU"
@@ -37,4 +59,6 @@ translation:
     - lis_code: "PPT"
       instrument_code: "0004"
 
+# Addressed to: `hans.interfaces.handlers.astm._ensure_trace_logger`.
+# Base directory where per-interface, per-day trace logs are created.
 trace_dir: "../prod/instruments"

@@ -19,7 +19,13 @@ def send_ack(sock):
     sock.sendall(ACK)
 
 # ASTM message body
-msg = "H|\\^&||||||||||P|1\rQ|1|000000000007\rL|1|N\r"  # Q3: barcode
+# msg = "H|\\^&||||||||||P|1\rQ|1|000000000006\rL|1|N\r"  # Q3: barcode
+msg = (
+    "H|\\^&||||||||||P|1\r"
+    "O|1|000000000005\r"
+    "R|1|0001|5.6|mmol/L||||F|20260209103000\r"
+    "L|1|N\r"
+)
 frame_body = b"1" + msg.encode("ascii")
 frame = STX + frame_body + ETX + b"00" + CR + LF  # checksum 00, validation off
 

@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import importlib
-import inspect
 import logging
 from pathlib import Path
 from typing import Callable, Awaitable, Iterable
@@ -14,6 +13,15 @@ from typing import Callable, Awaitable, Iterable
 import yaml
 
 from .config_reader import InterfaceConfig
+
+# Ensure all ORM models are registered in Base.metadata
+import hans.specimens  
+import hans.tests      
+import hans.orders     
+import hans.services   
+import hans.instruments
+import hans.patients   
+import hans.owners    
 
 
 logger = logging.getLogger("hans.interfaces")
@@ -28,26 +36,24 @@ def _resolve_handler_name(raw: dict) -> str:
     handler = raw.get("handler")
 
     if not handler:
-        raise ValueError("Config must provide 'handler', 'route', or 'protocol'.")
+        raise ValueError("Config must provide 'handler'.")
 
     return str(handler).strip()
 
 
 def _import_handler_module(handler_name: str):
     module_path = handler_name
-    if "." not in handler_name:
+    if "." not in handler_name:  # check if config provide full import path or not
         module_path = f"hans.interfaces.handlers.{handler_name}"
     return importlib.import_module(module_path)
 
 
 def _resolve_handler_func(module) -> Callable[..., Awaitable[None]]:
-    for candidate in ("handle_connection", "handle_stream", "handle"):
-        func = getattr(module, candidate, None)
-        if callable(func):
-            return func
+    func = getattr(module, "handle_connection", None)
+    if callable(func):
+        return func
     raise AttributeError(
-        f"Handler module {module.__name__} must define async function "
-        f"'handle_connection', 'handle_stream', or 'handle'."
+        f"Handler module {module.__name__} must define async function 'handle_connection'."
     )
 
 
@@ -74,15 +80,7 @@ async def _run_one(config_path: Path) -> None:
         addr = writer.get_extra_info("peername")
         logger.info("Client connected interface=%s peer=%s", config.interface_name, addr)
         try:
-            sig = inspect.signature(handler_func)
-            kwargs = {}
-            if "config" in sig.parameters:
-                kwargs["config"] = config
-            if "raw_config" in sig.parameters:
-                kwargs["raw_config"] = raw
-            if "config_path" in sig.parameters:
-                kwargs["config_path"] = config_path
-            await handler_func(reader, writer, **kwargs)
+            await handler_func(reader, writer, config=config, config_path=config_path)
         except Exception:
             logger.exception(
                 "Handler error interface=%s handler=%s peer=%s",

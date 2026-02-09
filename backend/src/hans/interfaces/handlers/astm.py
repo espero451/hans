@@ -5,12 +5,12 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, Optional, List
+from typing import Iterable, Optional, List, Protocol
 
 from sqlalchemy import select
 
 from hans.core.db import SessionLocal
-from hans.orders import Order, Specimen, TestRun
+from hans.orders import Order, Specimen, TestRun, Result
 from hans.patients import Patient
 from hans.tests import TestCatalog
 
@@ -307,13 +307,211 @@ class AstmQueryHandler:
             )
 
 
+class AstmHandler(Protocol):
+    async def handle(self, message: AstmMessage) -> Optional[AstmMessage]:
+        ...
+
+
+@dataclass
+class ResultPayload:
+    specimen_id: str
+    lis_code: str
+    value: str | None
+    units: str | None
+    flags: str | None
+    completed_at: datetime | None
+    verified: bool
+
+
+class AstmResultHandler:
+    def __init__(
+        self,
+        config: InterfaceConfig,
+        translation: TranslationTable,
+        delimiters: AstmDelimiters,
+    ) -> None:
+        self._config = config
+        self._translation = translation
+        self._delimiters = delimiters
+
+    async def handle(self, message: AstmMessage) -> Optional[AstmMessage]:
+        results = self._parse_results(message)
+        if not results:
+            logger.info("No R records in message; ignoring.")
+            trace_logger.info("message.ignored reason=no_r_record")
+            return None
+
+        await self._store_results(results)
+        return None
+
+    def _parse_results(self, message: AstmMessage) -> list[ResultPayload]:
+        delimiters = message.delimiters or self._delimiters
+        current_specimen = ""
+        parsed: dict[tuple[str, str], ResultPayload] = {}
+
+        for record in message.records:
+            if record.record_type == "O":
+                current_specimen = _extract_barcode(
+                    record,
+                    delimiters,
+                    self._config.query.barcode_field_indexes,
+                    self._config.query.allow_component_split,
+                )
+                if current_specimen:
+                    trace_logger.info("result.order barcode=%s", current_specimen)
+                else:
+                    trace_logger.info("result.order_missing_barcode")
+                continue
+
+            if record.record_type != "R":
+                continue
+
+            if not current_specimen:
+                trace_logger.info("result.skipped reason=no_order")
+                continue
+
+            test_code = _extract_barcode(record, delimiters, [2], True)
+            if not test_code:
+                trace_logger.info(
+                    "result.skipped reason=missing_test_code barcode=%s",
+                    current_specimen,
+                )
+                continue
+
+            lis_code = self._translation.instrument_to_lis.get(test_code, test_code)
+            value = record.get(3).strip() or None
+            units = record.get(4).strip() or None
+            flags = _first_nonempty(record, (6, 7)) or None
+            status = _first_nonempty(record, (8, 9))
+            completed_at = _parse_result_datetime(_first_nonempty(record, (9, 10, 12)))
+            verified = status.upper() in {"F", "C"} if status else False
+
+            payload = ResultPayload(
+                specimen_id=current_specimen,
+                lis_code=lis_code,
+                value=value,
+                units=units,
+                flags=flags,
+                completed_at=completed_at,
+                verified=verified,
+            )
+            parsed[(current_specimen, lis_code)] = payload
+
+        return list(parsed.values())
+
+    async def _store_results(self, results: list[ResultPayload]) -> None:
+        specimen_ids = {payload.specimen_id for payload in results}
+        lis_codes = {payload.lis_code for payload in results}
+        if not specimen_ids or not lis_codes:
+            return
+
+        async with SessionLocal() as session:
+            runs_result = await session.execute(
+                select(TestRun, TestCatalog)
+                .join(TestCatalog, TestCatalog.id == TestRun.test_catalog_id)
+                .where(
+                    TestRun.specimen_id.in_(specimen_ids),
+                    TestCatalog.code.in_(lis_codes),
+                )
+            )
+
+            test_runs: dict[tuple[str, str], TestRun] = {}
+            test_run_ids: list[int] = []
+            for test_run, test_catalog in runs_result.all():
+                test_runs[(test_run.specimen_id, test_catalog.code)] = test_run
+                test_run_ids.append(test_run.id)
+
+            if not test_runs:
+                trace_logger.info("result.store.no_matching_runs")
+                return
+
+            existing: dict[int, Result] = {}
+            if test_run_ids:
+                existing_result = await session.execute(
+                    select(Result)
+                    .where(Result.test_run_id.in_(test_run_ids))
+                    .order_by(Result.id.desc())
+                )
+                for result in existing_result.scalars():
+                    if result.test_run_id not in existing:
+                        existing[result.test_run_id] = result
+
+            stored = 0
+            for payload in results:
+                test_run = test_runs.get((payload.specimen_id, payload.lis_code))
+                if not test_run:
+                    trace_logger.info(
+                        "result.store.missing_run barcode=%s test=%s",
+                        payload.specimen_id,
+                        payload.lis_code,
+                    )
+                    continue
+
+                existing_result = existing.get(test_run.id)
+                if existing_result:
+                    existing_result.value = payload.value
+                    existing_result.units = payload.units
+                    existing_result.flags = payload.flags
+                    existing_result.completed_at = payload.completed_at
+                    existing_result.verified = payload.verified
+                else:
+                    session.add(
+                        Result(
+                            test_run_id=test_run.id,
+                            value=payload.value,
+                            units=payload.units,
+                            flags=payload.flags,
+                            completed_at=payload.completed_at,
+                            verified=payload.verified,
+                        )
+                    )
+
+                if test_run.status != "RECEIVED":
+                    test_run.status = "RECEIVED"
+                stored += 1
+
+            if stored:
+                await session.commit()
+            trace_logger.info("result.store.done count=%d", stored)
+
+
+class AstmAutoHandler:
+    def __init__(
+        self,
+        query_handler: AstmQueryHandler,
+        result_handler: AstmResultHandler,
+        default_mode: str,
+    ) -> None:
+        self._query_handler = query_handler
+        self._result_handler = result_handler
+        self._default_mode = (default_mode or "query").lower()
+
+    async def handle(self, message: AstmMessage) -> Optional[AstmMessage]:
+        has_r = any(record.record_type == "R" for record in message.records)
+        if has_r:
+            trace_logger.info("handler.select mode=result")
+            return await self._result_handler.handle(message)
+
+        has_q = any(record.record_type == "Q" for record in message.records)
+        if has_q:
+            trace_logger.info("handler.select mode=query")
+            return await self._query_handler.handle(message)
+
+        if self._default_mode == "result":
+            trace_logger.info("handler.select mode=result default")
+            return await self._result_handler.handle(message)
+
+        trace_logger.info("handler.select mode=query default")
+        return await self._query_handler.handle(message)
+
+
 class AstmSession:
     def __init__(
         self,
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
         config: InterfaceConfig,
-        handler: AstmQueryHandler,
+        handler: AstmHandler,
         delimiters: AstmDelimiters,
     ) -> None:
         self._reader = reader
@@ -525,6 +723,36 @@ def _extract_barcode(
     return ""
 
 
+def _first_nonempty(record: AstmRecord, indexes: Iterable[int]) -> str:
+    for idx in indexes:
+        value = record.get(idx).strip()
+        if value:
+            return value
+    return ""
+
+
+def _parse_result_datetime(raw: str) -> datetime | None:
+    raw = raw.strip()
+    if not raw:
+        return None
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    if len(digits) >= 14:
+        digits = digits[:14]
+        fmt = "%Y%m%d%H%M%S"
+    elif len(digits) >= 12:
+        digits = digits[:12]
+        fmt = "%Y%m%d%H%M"
+    elif len(digits) >= 8:
+        digits = digits[:8]
+        fmt = "%Y%m%d"
+    else:
+        return None
+    try:
+        return datetime.strptime(digits, fmt)
+    except ValueError:
+        return None
+
+
 def _build_query_response(
     contexts: List[QueryContext],
     delimiters: AstmDelimiters,
@@ -565,6 +793,8 @@ async def handle_connection(
     _ensure_trace_logger(config, config_path)
     delimiters = _resolve_delimiters(config.delimiters)
     translation = TranslationTable.from_data(config.translation)
-    handler = AstmQueryHandler(config, translation, delimiters)
+    query_handler = AstmQueryHandler(config, translation, delimiters)
+    result_handler = AstmResultHandler(config, translation, delimiters)
+    handler = AstmAutoHandler(query_handler, result_handler, config.mode)
     session = AstmSession(reader, writer, config, handler, delimiters)
     await session.run()
