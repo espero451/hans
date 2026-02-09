@@ -6,8 +6,6 @@ from typing import Dict, List
 
 import yaml
 
-from .model import AstmDelimiters
-
 
 @dataclass(frozen=True)
 class ServerConfig:
@@ -39,7 +37,7 @@ class InterfaceConfig:
     mode: str
     server: ServerConfig
     frame: FrameConfig
-    delimiters: AstmDelimiters
+    delimiters: Dict
     query: QueryConfig
     response: ResponseConfig
     translation: Dict
@@ -51,14 +49,7 @@ class InterfaceConfig:
         server = ServerConfig(**raw.get("server", {}))
         frame = FrameConfig(**raw.get("frame", {}))
 
-        delims = raw.get("delimiters", {})
-        delimiters = AstmDelimiters(
-            field=delims.get("field", "|"),
-            component=delims.get("component", "^"),
-            repeat=delims.get("repeat", "\\"),
-            escape=delims.get("escape", "&"),
-            record=delims.get("record", "\r"),
-        )
+        delimiters = raw.get("delimiters") or {}
 
         query = QueryConfig(
             barcode_field_indexes=raw.get("query", {}).get("barcode_field_indexes", [2, 3]),

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import argparse
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional, List
@@ -15,9 +14,8 @@ from hans.orders import Order, Specimen, TestRun
 from hans.patients import Patient
 from hans.tests import TestCatalog
 
-from .config import InterfaceConfig
-from .model import AstmDelimiters, AstmMessage, AstmRecord
-from .translation import TranslationTable
+from ..config_reader import InterfaceConfig
+from ..translation import TranslationTable
 
 
 STX = 0x02
@@ -33,7 +31,154 @@ LF = 0x0A
 
 logger = logging.getLogger("hans.astm")
 trace_logger = logging.getLogger("hans.astm.trace")
+_TRACE_CONFIGURED: set[str] = set()
 
+
+CONTROL_CHARS = {"\x02", "\x03", "\x04", "\x17"}  # STX, ETX, EOT, ETB
+
+
+@dataclass
+class AstmDelimiters:
+    field: str = "|"
+    component: str = "^"
+    repeat: str = "\\"
+    escape: str = "&"
+    record: str = "\r"
+
+    def header_field(self) -> str:
+        return f"{self.repeat}{self.component}{self.escape}"
+
+    @classmethod
+    def from_header_field(
+        cls,
+        header_field: str,
+        field: str = "|",
+        record: str = "\r",
+    ) -> "AstmDelimiters":
+        repeat = header_field[0] if len(header_field) > 0 else "\\"
+        component = header_field[1] if len(header_field) > 1 else "^"
+        escape = header_field[2] if len(header_field) > 2 else "&"
+        return cls(field=field, component=component, repeat=repeat, escape=escape, record=record)
+
+
+@dataclass
+class AstmRecord:
+    record_type: str
+    fields: List[str]
+
+    @classmethod
+    def parse(cls, line: str, field_sep: str = "|") -> "AstmRecord":
+        fields = line.split(field_sep)
+        record_type = fields[0] if fields else ""
+        return cls(record_type=record_type, fields=fields)
+
+    def serialize(self, field_sep: str = "|") -> str:
+        return field_sep.join(self.fields)
+
+    def get(self, index: int, default: str = "") -> str:
+        if 0 <= index < len(self.fields):
+            return self.fields[index]
+        return default
+
+    def set(self, index: int, value: str) -> None:
+        if index < 0:
+            return
+        if index >= len(self.fields):
+            self.fields.extend([""] * (index + 1 - len(self.fields)))
+        self.fields[index] = value
+        if index == 0:
+            self.record_type = value
+
+
+@dataclass
+class AstmMessage:
+    records: List[AstmRecord] = field(default_factory=list)
+    delimiters: AstmDelimiters = field(default_factory=AstmDelimiters)
+
+    def add(self, record: AstmRecord) -> None:
+        self.records.append(record)
+
+    def serialize(self, include_trailing_record_sep: bool = True) -> str:
+        body = self.delimiters.record.join(
+            record.serialize(self.delimiters.field) for record in self.records
+        )
+        if include_trailing_record_sep and body:
+            return body + self.delimiters.record
+        return body
+
+    @classmethod
+    def parse(cls, raw: str, record_sep: str = "\r") -> "AstmMessage":
+        lines = _split_records(raw, record_sep=record_sep)
+        if not lines:
+            return cls()
+
+        field_sep = "|"
+        if len(lines[0]) > 1 and lines[0][0] == "H":
+            field_sep = lines[0][1]
+
+        records = [AstmRecord.parse(line, field_sep=field_sep) for line in lines]
+        delimiters = AstmDelimiters(field=field_sep, record=record_sep)
+
+        if records and records[0].record_type == "H" and len(records[0].fields) > 1:
+            delimiters = AstmDelimiters.from_header_field(
+                records[0].fields[1], field=field_sep, record=record_sep
+            )
+
+        return cls(records=records, delimiters=delimiters)
+
+
+def _split_records(raw: str, record_sep: str = "\r") -> List[str]:
+    if not raw:
+        return []
+    cleaned = "".join(ch for ch in raw if ch not in CONTROL_CHARS)
+    cleaned = cleaned.strip(record_sep + "\n")
+    if not cleaned:
+        return []
+    return [line for line in cleaned.split(record_sep) if line]
+
+
+def _ensure_trace_logger(config: InterfaceConfig, config_path: Path | None = None) -> None:
+    key = f"{config.interface_name}:{config.server.host}:{config.server.port}"
+    if key in _TRACE_CONFIGURED:
+        return
+
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    trace_base = config.trace_dir / config.interface_name / today
+    trace_base.mkdir(parents=True, exist_ok=True)
+    trace_path = trace_base / f"{config.interface_name}.trace"
+
+    handler = logging.FileHandler(trace_path)
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s",
+            datefmt="%H:%M:%S",
+        )
+    )
+    trace_logger.handlers.clear()
+    trace_logger.addHandler(handler)
+    trace_logger.propagate = False
+
+    trace_logger.info(
+        "trace.start interface=%s config=%s",
+        config.interface_name,
+        config_path or config.interface_name,
+    )
+    _TRACE_CONFIGURED.add(key)
+
+
+def _resolve_delimiters(raw: object) -> AstmDelimiters:
+    if isinstance(raw, AstmDelimiters):
+        return raw
+    if isinstance(raw, dict):
+        return AstmDelimiters(
+            field=raw.get("field", "|"),
+            component=raw.get("component", "^"),
+            repeat=raw.get("repeat", "\\"),
+            escape=raw.get("escape", "&"),
+            record=raw.get("record", "\r"),
+        )
+    return AstmDelimiters()
 
 def calc_checksum(payload: bytes) -> str:
     total = sum(payload) % 256
@@ -76,9 +221,15 @@ class QueryContext:
 
 
 class AstmQueryHandler:
-    def __init__(self, config: InterfaceConfig, translation: TranslationTable) -> None:
+    def __init__(
+        self,
+        config: InterfaceConfig,
+        translation: TranslationTable,
+        delimiters: AstmDelimiters,
+    ) -> None:
         self._config = config
         self._translation = translation
+        self._delimiters = delimiters
 
     async def handle(self, message: AstmMessage) -> Optional[AstmMessage]:
         queries = [record for record in message.records if record.record_type == "Q"]
@@ -119,7 +270,7 @@ class AstmQueryHandler:
 
         return _build_query_response(
             contexts=contexts,
-            delimiters=message.delimiters or self._config.delimiters,
+            delimiters=message.delimiters or self._delimiters,
             include_patient=self._config.response.include_patient,
         )
 
@@ -144,7 +295,8 @@ class AstmQueryHandler:
             )
             test_codes: list[str] = []
             for test_run, test_catalog in runs_result.all():
-                code = self._translation.test_id_to_code.get(test_catalog.id, test_catalog.code)
+                lis_code = test_catalog.code
+                code = self._translation.lis_to_instrument.get(lis_code, lis_code)
                 test_codes.append(code)
 
             return QueryContext(
@@ -162,11 +314,13 @@ class AstmSession:
         writer: asyncio.StreamWriter,
         config: InterfaceConfig,
         handler: AstmQueryHandler,
+        delimiters: AstmDelimiters,
     ) -> None:
         self._reader = reader
         self._writer = writer
         self._config = config
         self._handler = handler
+        self._delimiters = delimiters
 
         self._state = "idle"
         self._frame_data = bytearray()
@@ -293,7 +447,7 @@ class AstmSession:
             return
 
         trace_logger.info("message.raw %s", text.replace("\r", "\\r"))
-        message = AstmMessage.parse(text, record_sep=self._config.delimiters.record)
+        message = AstmMessage.parse(text, record_sep=self._delimiters.record)
         trace_logger.info("message.parsed records=%d", len(message.records))
         response = await self._handler.handle(message)
         if response:
@@ -400,68 +554,17 @@ def _build_query_response(
     return message
 
 
-async def run_server(config: InterfaceConfig) -> None:
+async def handle_connection(
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    *,
+    config: InterfaceConfig,
+    raw_config: dict | None = None,
+    config_path: Path | None = None,
+) -> None:
+    _ensure_trace_logger(config, config_path)
+    delimiters = _resolve_delimiters(config.delimiters)
     translation = TranslationTable.from_data(config.translation)
-    handler = AstmQueryHandler(config, translation)
-
-    server = await asyncio.start_server(
-        lambda r, w: AstmSession(r, w, config, handler).run(),
-        host=config.server.host,
-        port=config.server.port,
-    )
-
-    addr = ", ".join(str(sock.getsockname()) for sock in (server.sockets or []))
-    logger.info("ASTM server listening on %s", addr)
-    trace_logger.info("server.listen addr=%s", addr)
-
-    async with server:
-        await server.serve_forever()
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Hans ASTM TCP server (query mode)")
-    parser.add_argument(
-        "--config",
-        default=str(Path(__file__).with_name("configs") / "astm_base.yaml"),
-        help="Path to ASTM interface config YAML.",
-    )
-    args = parser.parse_args()
-
-    config_path = Path(args.config).resolve()
-    if not config_path.exists() and config_path.suffix.lower() == ".json":
-        yaml_candidate = config_path.with_suffix(".yaml")
-        if yaml_candidate.exists():
-            config_path = yaml_candidate
-        else:
-            yml_candidate = config_path.with_suffix(".yml")
-            if yml_candidate.exists():
-                config_path = yml_candidate
-
-    if not config_path.exists():
-        raise FileNotFoundError(
-            f"Config not found: {config_path}. Try the .yaml file in configs/."
-        )
-    config = InterfaceConfig.load(config_path)
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
-
-    today = datetime.utcnow().strftime("%Y-%m-%d")
-    trace_base = config.trace_dir / config.interface_name / today
-    trace_base.mkdir(parents=True, exist_ok=True)
-    trace_path = trace_base / f"{config.interface_name}.trace"
-    trace_handler = logging.FileHandler(trace_path)
-    trace_handler.setLevel(logging.INFO)
-    trace_handler.setFormatter(logging.Formatter("%(asctime)s.%(msecs)03d [%(levelname)s] %(message)s", datefmt="%H:%M:%S"))
-    trace_logger.addHandler(trace_handler)
-    trace_logger.propagate = False
-
-    trace_logger.info("trace.start interface=%s config=%s", config.interface_name, config_path)
-
-    asyncio.run(run_server(config))
-
-
-if __name__ == "__main__":
-    main()
+    handler = AstmQueryHandler(config, translation, delimiters)
+    session = AstmSession(reader, writer, config, handler, delimiters)
+    await session.run()

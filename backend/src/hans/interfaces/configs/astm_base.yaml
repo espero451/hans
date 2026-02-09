@@ -1,6 +1,8 @@
 interface_name: astm_base
 mode: query
 
+handler: astm
+
 server:
   host: 127.0.0.1
   port: 5100
@@ -26,9 +28,13 @@ response:
 
 translation:
   tests:
-    - test_catalog_id: 1
-      code: GLU
-    - test_catalog_id: 2
-      code: BUN
+    - lis_code: "GLU"
+      instrument_code: "0001"
+    - lis_code: "BUN"
+      instrument_code: "0002"
+    - lis_code: "HEM"
+      instrument_code: "0003"
+    - lis_code: "PPT"
+      instrument_code: "0004"
 
 trace_dir: "../prod/instruments"

@@ -9,8 +9,8 @@ import yaml
 
 @dataclass(frozen=True)
 class TranslationTable:
-    test_id_to_code: Dict[int, str]
-    code_to_test_id: Dict[str, int]
+    lis_to_instrument: Dict[str, str]
+    instrument_to_lis: Dict[str, str]
 
     @classmethod
     def load(cls, path: Path) -> "TranslationTable":
@@ -19,19 +19,25 @@ class TranslationTable:
 
     @classmethod
     def from_data(cls, raw: dict) -> "TranslationTable":
-        test_id_to_code: Dict[int, str] = {}
-        code_to_test_id: Dict[str, int] = {}
+        lis_to_instrument: Dict[str, str] = {}
+        instrument_to_lis: Dict[str, str] = {}
 
         for entry in raw.get("tests", []):
-            raw_id = entry.get("test_catalog_id", entry.get("test_id"))
-            if raw_id is None:
+            if not isinstance(entry, dict):
                 continue
-            test_id = int(raw_id)
-            code = str(entry["code"])
-            test_id_to_code[test_id] = code
-            code_to_test_id[code] = test_id
+            lis_code = entry.get("lis_code")
+            instrument_code = entry.get("instrument_code")
+            if not lis_code or not instrument_code:
+                continue
+            lis_code = str(lis_code)
+            instrument_code = str(instrument_code)
+            lis_to_instrument[lis_code] = instrument_code
+            instrument_to_lis[instrument_code] = lis_code
 
-        return cls(test_id_to_code=test_id_to_code, code_to_test_id=code_to_test_id)
+        return cls(
+            lis_to_instrument=lis_to_instrument,
+            instrument_to_lis=instrument_to_lis,
+        )
 
 
 def _load_data(path: Path) -> dict:
