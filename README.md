@@ -18,20 +18,21 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 - Laboratory specimens, tests, and additional services
 - Laboratory orders linking patients to tests/services
 - Result entry and status tracking for performed tests
-- ASTM TCP integration for laboratory instruments
+- TCP server and protocol handlers for laboratory instrument integration
 
 ## Main Functionality
 
-- **Authentication**: JWT-based login, protected endpoints
-- **CRUD** operations for core entities (owners, patients, specimens, tests, services, orders, results)
-- **Orders**: Create orders for a patient with selected tests and services; `/orders/{id}` returns full order state: specimens, test_runs, service_runs, results
-- **Specimen tracking**: Auto-create runtime specimens (= barcode)
-- **Results**: View and (future) update test results (value, units, flags, status, verification); results are stored separately and linked to test_runs (1:N)
-- **ASTM TCP Server (query mode)**: LIS listens on a TCP port; accepts Q-records (barcode); returns O-records with test lists; trace logs for all operations
-- **Audit logging**: All CRUD operations are recorded in daily audit logs with user ID and timestamp
+- **Authentication**: JWT-based login, protected endpoints.
+- **CRUD** operations for core entities (owners, patients, specimens, tests, services, orders, results).
+- **Orders**: Create orders for a patient with selected tests and services; `/orders/{id}` returns full order state: specimens, test_runs, service_runs, results.
+- **Specimen tracking**: Auto-create runtime specimens (= barcode).
+- **Results**: View and update test results (value, units, flags, status, verification); results are stored separately and linked to test_runs (1:N).
+- **TCP Server**: LIS listening on a configurable port and dispatching incoming messages to protocol handlers
+- **ASTM Handler**:  ASTM message handler for query/result processing; accepts R- and Q-records; returns O-records with test lists.
+- **Audit logging**: All CRUD operations are recorded in daily audit logs with user ID and timestamp.
 - **Instrument Emulator** (debug tool): Local script for testing ASTM communication without a real analyzer.
 
-## Technology Stack (Main Components)
+## Main Technology Stack
 
 - Python 3.10+
 - FastAPI
@@ -72,13 +73,11 @@ Note: Database tables are auto-created on startup. No initial data seeding yet.
 # TODO & Current Limitations 
 
 - Routers are mounted directly on app instead of using APIRouter (to be refactored)
-- No pagination on list endpoints (except owners/patients partial)
 - No role-based access control (all authenticated users have full access)
-- No patient/owner search or filtering
 - No reporting and export features
-- ~~No frontend integration yet (CORS configured for http://localhost:5173)~~
 - Minimal input validation beyond Pydantic
 - No tests (unit/integration)
+- ~~No frontend integration yet (CORS configured for http://localhost:5173)~~
 - ~~Write Translation Table functionality~~
 - ~~Write instrument-interfaces~~
 
