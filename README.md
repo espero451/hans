@@ -7,7 +7,7 @@
 
 # Hans LIS
 
-Minimalistic Veterinary Laboratory Information System (LIS). The project is under active development.
+Lightweight veterinary Laboratory Information System (LIS). **The project is under active development.**
 
 ## Overview
 
@@ -19,6 +19,18 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 - Laboratory orders linking patients to tests/services
 - Result entry and status tracking for performed tests
 - TCP server and protocol handlers for laboratory instrument integration
+
+<details>
+<summary>Screenshots</summary>
+
+<p align="center">
+  <img src="docs/screenshots/orders.png" alt="Orders" width="100%">
+</p>
+<p align="center">
+  <img src="docs/screenshots/settings.png" alt="Settings" width="100%">
+</p>
+
+</details>
 
 ## Main Functionality
 
