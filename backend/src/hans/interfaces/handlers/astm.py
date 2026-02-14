@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, Optional, List, Protocol
+from typing import Iterable, Protocol
 
 from sqlalchemy import select
 
@@ -34,7 +34,14 @@ trace_logger = logging.getLogger("hans.astm.trace")
 _TRACE_CONFIGURED: set[str] = set()
 
 
-CONTROL_CHARS = {"\x02", "\x03", "\x04", "\x17"}  # STX, ETX, EOT, ETB
+CONTROL_CHARS = {chr(STX), chr(ETX), chr(EOT), chr(ETB)}
+
+R_TEST_CODE_FIELD = 2
+R_VALUE_FIELD = 3
+R_UNITS_FIELD = 4
+R_FLAGS_FIELDS = (6, 7)
+R_STATUS_FIELDS = (8, 9)
+R_COMPLETED_FIELDS = (9, 10, 12)
 
 
 @dataclass
@@ -64,7 +71,7 @@ class AstmDelimiters:
 @dataclass
 class AstmRecord:
     record_type: str
-    fields: List[str]
+    fields: list[str]
 
     @classmethod
     def parse(cls, line: str, field_sep: str = "|") -> "AstmRecord":
@@ -87,12 +94,13 @@ class AstmRecord:
             self.fields.extend([""] * (index + 1 - len(self.fields)))
         self.fields[index] = value
         if index == 0:
+            # Keep record_type in sync when updating field 0.
             self.record_type = value
 
 
 @dataclass
 class AstmMessage:
-    records: List[AstmRecord] = field(default_factory=list)
+    records: list[AstmRecord] = field(default_factory=list)
     delimiters: AstmDelimiters = field(default_factory=AstmDelimiters)
 
     def add(self, record: AstmRecord) -> None:
@@ -111,23 +119,12 @@ class AstmMessage:
         lines = _split_records(raw, record_sep=record_sep)
         if not lines:
             return cls()
-
-        field_sep = "|"
-        if len(lines[0]) > 1 and lines[0][0] == "H":
-            field_sep = lines[0][1]
-
-        records = [AstmRecord.parse(line, field_sep=field_sep) for line in lines]
-        delimiters = AstmDelimiters(field=field_sep, record=record_sep)
-
-        if records and records[0].record_type == "H" and len(records[0].fields) > 1:
-            delimiters = AstmDelimiters.from_header_field(
-                records[0].fields[1], field=field_sep, record=record_sep
-            )
-
+        delimiters = _resolve_delimiters_from_lines(lines, record_sep)
+        records = [AstmRecord.parse(line, field_sep=delimiters.field) for line in lines]
         return cls(records=records, delimiters=delimiters)
 
 
-def _split_records(raw: str, record_sep: str = "\r") -> List[str]:
+def _split_records(raw: str, record_sep: str = "\r") -> list[str]:
     if not raw:
         return []
     cleaned = "".join(ch for ch in raw if ch not in CONTROL_CHARS)
@@ -135,6 +132,23 @@ def _split_records(raw: str, record_sep: str = "\r") -> List[str]:
     if not cleaned:
         return []
     return [line for line in cleaned.split(record_sep) if line]
+
+
+def _resolve_delimiters_from_lines(lines: list[str], record_sep: str) -> AstmDelimiters:
+    if not lines:
+        return AstmDelimiters(record=record_sep)
+
+    field_sep = "|"
+    if len(lines[0]) > 1 and lines[0][0] == "H":
+        field_sep = lines[0][1]
+
+    header_record = AstmRecord.parse(lines[0], field_sep=field_sep)
+    if header_record.record_type == "H" and len(header_record.fields) > 1:
+        return AstmDelimiters.from_header_field(
+            header_record.fields[1], field=field_sep, record=record_sep
+        )
+
+    return AstmDelimiters(field=field_sep, record=record_sep)
 
 
 def _ensure_trace_logger(config: InterfaceConfig, config_path: Path | None = None) -> None:
@@ -179,6 +193,7 @@ def _resolve_delimiters(raw: object) -> AstmDelimiters:
             record=raw.get("record", "\r"),
         )
     return AstmDelimiters()
+
 
 def calc_checksum(payload: bytes) -> str:
     total = sum(payload) % 256
@@ -231,26 +246,19 @@ class AstmQueryHandler:
         self._translation = translation
         self._delimiters = delimiters
 
-    async def handle(self, message: AstmMessage) -> Optional[AstmMessage]:
+    async def handle(self, message: AstmMessage) -> AstmMessage | None:
         queries = [record for record in message.records if record.record_type == "Q"]
         if not queries:
             logger.info("No Q record in message; ignoring.")
             trace_logger.info("message.ignored reason=no_q_record")
             return None
 
-        contexts: List[QueryContext] = []
-        for query in queries:
-            barcode = _extract_barcode(
-                query,
-                message.delimiters,
-                self._config.query.barcode_field_indexes,
-                self._config.query.allow_component_split,
-            )
-            if not barcode:
-                logger.warning("Query received without barcode.")
-                trace_logger.info("message.rejected reason=missing_barcode")
-                return None
+        barcodes = self._extract_query_barcodes(queries, message.delimiters)
+        if not barcodes:
+            return None
 
+        contexts: list[QueryContext] = []
+        for barcode in barcodes:
             trace_logger.info("query.received barcode=%s", barcode)
             context = await self._load_context(barcode)
             if not context:
@@ -274,7 +282,27 @@ class AstmQueryHandler:
             include_patient=self._config.response.include_patient,
         )
 
-    async def _load_context(self, barcode: str) -> Optional[QueryContext]:
+    def _extract_query_barcodes(
+        self,
+        queries: list[AstmRecord],
+        delimiters: AstmDelimiters,
+    ) -> list[str]:
+        barcodes: list[str] = []
+        for query in queries:
+            barcode = _extract_barcode(
+                query,
+                delimiters,
+                self._config.query.barcode_field_indexes,
+                self._config.query.allow_component_split,
+            )
+            if not barcode:
+                logger.warning("Query received without barcode.")
+                trace_logger.info("message.rejected reason=missing_barcode")
+                return []
+            barcodes.append(barcode)
+        return barcodes
+
+    async def _load_context(self, barcode: str) -> QueryContext | None:
         async with SessionLocal() as session:
             result = await session.execute(
                 select(Order, Specimen, Patient)
@@ -308,7 +336,7 @@ class AstmQueryHandler:
 
 
 class AstmHandler(Protocol):
-    async def handle(self, message: AstmMessage) -> Optional[AstmMessage]:
+    async def handle(self, message: AstmMessage) -> AstmMessage | None:
         ...
 
 
@@ -334,7 +362,7 @@ class AstmResultHandler:
         self._translation = translation
         self._delimiters = delimiters
 
-    async def handle(self, message: AstmMessage) -> Optional[AstmMessage]:
+    async def handle(self, message: AstmMessage) -> AstmMessage | None:
         results = self._parse_results(message)
         if not results:
             logger.info("No R records in message; ignoring.")
@@ -370,34 +398,44 @@ class AstmResultHandler:
                 trace_logger.info("result.skipped reason=no_order")
                 continue
 
-            test_code = _extract_barcode(record, delimiters, [2], True)
-            if not test_code:
-                trace_logger.info(
-                    "result.skipped reason=missing_test_code barcode=%s",
-                    current_specimen,
-                )
+            payload = self._parse_result_record(record, delimiters, current_specimen)
+            if not payload:
                 continue
-
-            lis_code = self._translation.instrument_to_lis.get(test_code, test_code)
-            value = record.get(3).strip() or None
-            units = record.get(4).strip() or None
-            flags = _first_nonempty(record, (6, 7)) or None
-            status = _first_nonempty(record, (8, 9))
-            completed_at = _parse_result_datetime(_first_nonempty(record, (9, 10, 12)))
-            verified = status.upper() in {"F", "C"} if status else False
-
-            payload = ResultPayload(
-                specimen_id=current_specimen,
-                lis_code=lis_code,
-                value=value,
-                units=units,
-                flags=flags,
-                completed_at=completed_at,
-                verified=verified,
-            )
-            parsed[(current_specimen, lis_code)] = payload
+            parsed[(payload.specimen_id, payload.lis_code)] = payload
 
         return list(parsed.values())
+
+    def _parse_result_record(
+        self,
+        record: AstmRecord,
+        delimiters: AstmDelimiters,
+        specimen_id: str,
+    ) -> ResultPayload | None:
+        test_code = _extract_barcode(record, delimiters, [R_TEST_CODE_FIELD], True)
+        if not test_code:
+            trace_logger.info(
+                "result.skipped reason=missing_test_code barcode=%s",
+                specimen_id,
+            )
+            return None
+
+        lis_code = self._translation.instrument_to_lis.get(test_code, test_code)
+        value = record.get(R_VALUE_FIELD).strip() or None
+        units = record.get(R_UNITS_FIELD).strip() or None
+        flags = _first_nonempty(record, R_FLAGS_FIELDS) or None
+        status = _first_nonempty(record, R_STATUS_FIELDS)
+        completed_at = _parse_result_datetime(_first_nonempty(record, R_COMPLETED_FIELDS))
+        verified = status.upper() in {"F", "C"} if status else False
+
+        return ResultPayload(
+            specimen_id=specimen_id,
+            lis_code=lis_code,
+            value=value,
+            units=units,
+            flags=flags,
+            completed_at=completed_at,
+            verified=verified,
+        )
 
     async def _store_results(self, results: list[ResultPayload]) -> None:
         specimen_ids = {payload.specimen_id for payload in results}
@@ -406,73 +444,103 @@ class AstmResultHandler:
             return
 
         async with SessionLocal() as session:
-            runs_result = await session.execute(
-                select(TestRun, TestCatalog)
-                .join(TestCatalog, TestCatalog.id == TestRun.test_catalog_id)
-                .where(
-                    TestRun.specimen_id.in_(specimen_ids),
-                    TestCatalog.code.in_(lis_codes),
-                )
+            test_runs, test_run_ids = await self._load_test_runs(
+                session, specimen_ids, lis_codes
             )
-
-            test_runs: dict[tuple[str, str], TestRun] = {}
-            test_run_ids: list[int] = []
-            for test_run, test_catalog in runs_result.all():
-                test_runs[(test_run.specimen_id, test_catalog.code)] = test_run
-                test_run_ids.append(test_run.id)
-
             if not test_runs:
                 trace_logger.info("result.store.no_matching_runs")
                 return
 
-            existing: dict[int, Result] = {}
-            if test_run_ids:
-                existing_result = await session.execute(
-                    select(Result)
-                    .where(Result.test_run_id.in_(test_run_ids))
-                    .order_by(Result.id.desc())
-                )
-                for result in existing_result.scalars():
-                    if result.test_run_id not in existing:
-                        existing[result.test_run_id] = result
-
-            stored = 0
-            for payload in results:
-                test_run = test_runs.get((payload.specimen_id, payload.lis_code))
-                if not test_run:
-                    trace_logger.info(
-                        "result.store.missing_run barcode=%s test=%s",
-                        payload.specimen_id,
-                        payload.lis_code,
-                    )
-                    continue
-
-                existing_result = existing.get(test_run.id)
-                if existing_result:
-                    existing_result.value = payload.value
-                    existing_result.units = payload.units
-                    existing_result.flags = payload.flags
-                    existing_result.completed_at = payload.completed_at
-                    existing_result.verified = payload.verified
-                else:
-                    session.add(
-                        Result(
-                            test_run_id=test_run.id,
-                            value=payload.value,
-                            units=payload.units,
-                            flags=payload.flags,
-                            completed_at=payload.completed_at,
-                            verified=payload.verified,
-                        )
-                    )
-
-                if test_run.status != "RECEIVED":
-                    test_run.status = "RECEIVED"
-                stored += 1
+            existing = await self._load_existing_results(session, test_run_ids)
+            stored = self._apply_results(session, results, test_runs, existing)
 
             if stored:
                 await session.commit()
             trace_logger.info("result.store.done count=%d", stored)
+
+    async def _load_test_runs(
+        self,
+        session,
+        specimen_ids: set[str],
+        lis_codes: set[str],
+    ) -> tuple[dict[tuple[str, str], TestRun], list[int]]:
+        runs_result = await session.execute(
+            select(TestRun, TestCatalog)
+            .join(TestCatalog, TestCatalog.id == TestRun.test_catalog_id)
+            .where(
+                TestRun.specimen_id.in_(specimen_ids),
+                TestCatalog.code.in_(lis_codes),
+            )
+        )
+
+        test_runs: dict[tuple[str, str], TestRun] = {}
+        test_run_ids: list[int] = []
+        for test_run, test_catalog in runs_result.all():
+            test_runs[(test_run.specimen_id, test_catalog.code)] = test_run
+            test_run_ids.append(test_run.id)
+
+        return test_runs, test_run_ids
+
+    async def _load_existing_results(
+        self,
+        session,
+        test_run_ids: list[int],
+    ) -> dict[int, Result]:
+        existing: dict[int, Result] = {}
+        if not test_run_ids:
+            return existing
+
+        existing_result = await session.execute(
+            select(Result)
+            .where(Result.test_run_id.in_(test_run_ids))
+            .order_by(Result.id.desc())
+        )
+        for result in existing_result.scalars():
+            if result.test_run_id not in existing:
+                existing[result.test_run_id] = result
+        return existing
+
+    def _apply_results(
+        self,
+        session,
+        results: list[ResultPayload],
+        test_runs: dict[tuple[str, str], TestRun],
+        existing: dict[int, Result],
+    ) -> int:
+        stored = 0
+        for payload in results:
+            test_run = test_runs.get((payload.specimen_id, payload.lis_code))
+            if not test_run:
+                trace_logger.info(
+                    "result.store.missing_run barcode=%s test=%s",
+                    payload.specimen_id,
+                    payload.lis_code,
+                )
+                continue
+
+            existing_result = existing.get(test_run.id)
+            if existing_result:
+                existing_result.value = payload.value
+                existing_result.units = payload.units
+                existing_result.flags = payload.flags
+                existing_result.completed_at = payload.completed_at
+                existing_result.verified = payload.verified
+            else:
+                session.add(
+                    Result(
+                        test_run_id=test_run.id,
+                        value=payload.value,
+                        units=payload.units,
+                        flags=payload.flags,
+                        completed_at=payload.completed_at,
+                        verified=payload.verified,
+                    )
+                )
+
+            if test_run.status != "RECEIVED":
+                test_run.status = "RECEIVED"
+            stored += 1
+        return stored
 
 
 class AstmAutoHandler:
@@ -486,7 +554,7 @@ class AstmAutoHandler:
         self._result_handler = result_handler
         self._default_mode = (default_mode or "query").lower()
 
-    async def handle(self, message: AstmMessage) -> Optional[AstmMessage]:
+    async def handle(self, message: AstmMessage) -> AstmMessage | None:
         has_r = any(record.record_type == "R" for record in message.records)
         if has_r:
             trace_logger.info("handler.select mode=result")
@@ -644,7 +712,7 @@ class AstmSession:
             trace_logger.info("message.decode_failed")
             return
 
-        trace_logger.info("message.raw %s", text.replace("\r", "\\r"))
+        trace_logger.info("message.raw %s", _format_trace_message(text))
         message = AstmMessage.parse(text, record_sep=self._delimiters.record)
         trace_logger.info("message.parsed records=%d", len(message.records))
         response = await self._handler.handle(message)
@@ -658,7 +726,7 @@ class AstmSession:
             return
 
         raw = message.serialize(include_trailing_record_sep=True)
-        trace_logger.info("response.raw %s", raw.replace("\r", "\\r"))
+        trace_logger.info("response.raw %s", _format_trace_message(raw))
         trace_logger.info("response.frames size=%d", len(frames))
 
         trace_logger.info("send.enq")
@@ -702,6 +770,10 @@ class AstmSession:
     async def _send_bytes(self, data: bytes) -> None:
         self._writer.write(data)
         await self._writer.drain()
+
+
+def _format_trace_message(raw: str) -> str:
+    return raw.replace("\r", "\\r")
 
 
 def _extract_barcode(
@@ -754,7 +826,7 @@ def _parse_result_datetime(raw: str) -> datetime | None:
 
 
 def _build_query_response(
-    contexts: List[QueryContext],
+    contexts: list[QueryContext],
     delimiters: AstmDelimiters,
     include_patient: bool,
 ) -> AstmMessage:
