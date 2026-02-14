@@ -1,13 +1,14 @@
 from typing import Optional, List
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import String, ForeignKey
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import String, ForeignKey
 
 from hans.core.db import Base, get_db
-from hans.core.auth import get_current_user, User
+from hans.core.auth import User, require_admin, require_staff_or_admin
 from hans.core.core import app, audit_log
 
 
@@ -74,20 +75,24 @@ class TubeType(Base):
 # ---------------- ROUTES ----------------
 
 @app.get("/specimens", response_model=List[SpecimenTypeRead])
-async def get_specimens(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def get_specimens(db: AsyncSession = Depends(get_db), user: User = Depends(require_staff_or_admin)):
     result = await db.execute(select(SpecimenType).order_by(SpecimenType.id))
     return result.scalars().all()
 
 @app.post("/specimens", response_model=SpecimenTypeRead)
-async def create_specimen(data: SpecimenTypeCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def create_specimen(data: SpecimenTypeCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     specimen_type = SpecimenType(**data.dict())
     db.add(specimen_type)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, "Specimen code already exists")
     audit_log(user.id, f"Created specimen_type {specimen_type.id}")
     return specimen_type
 
 @app.put("/specimens/{specimen_id}", response_model=SpecimenTypeRead)
-async def update_specimen(specimen_id: int, data: SpecimenTypeCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def update_specimen(specimen_id: int, data: SpecimenTypeCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     result_obj = await db.execute(select(SpecimenType).where(SpecimenType.id == specimen_id))
     specimen_type = result_obj.scalar_one_or_none()
     if not specimen_type:
@@ -99,7 +104,7 @@ async def update_specimen(specimen_id: int, data: SpecimenTypeCreate, db: AsyncS
     return specimen_type
 
 @app.delete("/specimens/{specimen_id}")
-async def delete_specimen(specimen_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def delete_specimen(specimen_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     result_obj = await db.execute(select(SpecimenType).where(SpecimenType.id == specimen_id))
     specimen_type = result_obj.scalar_one_or_none()
     if not specimen_type:
@@ -112,20 +117,24 @@ async def delete_specimen(specimen_id: int, db: AsyncSession = Depends(get_db), 
 
 
 @app.get("/tubes", response_model=List[TubeTypeRead])
-async def get_tube(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def get_tube(db: AsyncSession = Depends(get_db), user: User = Depends(require_staff_or_admin)):
     result = await db.execute(select(TubeType).order_by(TubeType.id))
     return result.scalars().all()
 
 @app.post("/tubes", response_model=TubeTypeRead)
-async def create_tube(data: TubeTypeCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def create_tube(data: TubeTypeCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     tube_type = TubeType(**data.dict())
     db.add(tube_type)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, "TUbe code already exists")
     audit_log(user.id, f"Created tube_type {tube_type.id}")
     return tube_type
 
 @app.put("/tubes/{tube_id}", response_model=TubeTypeRead)
-async def update_tube(tube_id: int, data: TubeTypeCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def update_tube(tube_id: int, data: TubeTypeCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     result_obj = await db.execute(select(TubeType).where(TubeType.id == tube_id))
     tube_type = result_obj.scalar_one_or_none()
     if not tube_type:
@@ -137,7 +146,7 @@ async def update_tube(tube_id: int, data: TubeTypeCreate, db: AsyncSession = Dep
     return tube_type
 
 @app.delete("/tubes/{tube_id}")
-async def delete_tube(tube_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def delete_tube(tube_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     result_obj = await db.execute(select(TubeType).where(TubeType.id == tube_id))
     tube_type = result_obj.scalar_one_or_none()
     if not tube_type:

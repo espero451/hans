@@ -1,13 +1,14 @@
 from typing import Optional, List
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import ForeignKey, String, Numeric
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import ForeignKey, String, Numeric
 
 from hans.core.db import Base, get_db
-from hans.core.auth import get_current_user, User
+from hans.core.auth import User, require_admin, require_staff_or_admin
 from hans.core.core import app, audit_log
 
 
@@ -46,20 +47,24 @@ class TestCatalog(Base):
 # ---------------- ROUTES ----------------
 
 @app.get("/tests", response_model=List[TestCatalogRead])
-async def get_tests(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def get_tests(db: AsyncSession = Depends(get_db), user: User = Depends(require_staff_or_admin)):
     result = await db.execute(select(TestCatalog).order_by(TestCatalog.code))
     return result.scalars().all()
 
 @app.post("/tests", response_model=TestCatalogRead)
-async def create_test(data: TestCatalogCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def create_test(data: TestCatalogCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     test = TestCatalog(**data.dict())
     db.add(test)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, "Test code already exists")
     audit_log(user.id, f"Created test {test.id}")
     return test
 
 @app.put("/tests/{test_id}", response_model=TestCatalogRead)
-async def update_test(test_id: int, data: TestCatalogCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def update_test(test_id: int, data: TestCatalogCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     result_obj = await db.execute(select(TestCatalog).where(TestCatalog.id == test_id))
     test = result_obj.scalar_one_or_none()
     if not test:
@@ -71,7 +76,7 @@ async def update_test(test_id: int, data: TestCatalogCreate, db: AsyncSession = 
     return test
 
 @app.delete("/tests/{test_id}")
-async def delete_test(test_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def delete_test(test_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     result_obj = await db.execute(select(TestCatalog).where(TestCatalog.id == test_id))
     test = result_obj.scalar_one_or_none()
     if not test:

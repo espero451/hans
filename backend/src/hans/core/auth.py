@@ -21,6 +21,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # FastAPI will read the Authorization: Bearer <token> header.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
+# Role names used for authorization checks.
+ROLE_ADMIN = "admin"
+ROLE_STAFF = "staff"
+
 # Hash a plain-text password before storing it in the database.
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -89,3 +93,16 @@ async def get_current_user(
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
+
+# Enforce that the current user has an allowed role.
+def require_roles(*allowed_roles: str):
+    async def _require(user: User = Depends(get_current_user)):
+        if user.role not in allowed_roles:
+            raise HTTPException(status_code=403, detail="Forbidden")
+        return user
+
+    return _require
+
+# Role dependencies.
+require_admin = require_roles(ROLE_ADMIN)
+require_staff_or_admin = require_roles(ROLE_ADMIN, ROLE_STAFF)

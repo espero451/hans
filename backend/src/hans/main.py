@@ -4,7 +4,7 @@ from hans.core.core import app
 from hans.core.db import engine, Base
 from hans.core import auth
 
-from hans import owners, patients, orders, services, tests, specimens, instruments
+from hans import users, owners, patients, orders, services, tests, specimens, instruments
 
 
 # app.include_router(auth_router, prefix="/auth", tags=["auth"])

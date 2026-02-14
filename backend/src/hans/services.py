@@ -1,13 +1,13 @@
 from typing import Optional, List
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import Numeric, String
 
 from hans.core.db import Base, get_db
-from hans.core.auth import get_current_user, User
+from hans.core.auth import User, require_admin, require_staff_or_admin
 from hans.core.core import app, audit_log
 
 
@@ -43,12 +43,12 @@ class ServiceCatalog(Base):
 # ---------------- ROUTES ----------------
 
 @app.get("/services", response_model=List[ServiceCatalogRead])
-async def get_services(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def get_services(db: AsyncSession = Depends(get_db), user: User = Depends(require_staff_or_admin)):
     result = await db.execute(select(ServiceCatalog).order_by(ServiceCatalog.name))
     return result.scalars().all()
 
 @app.post("/services", response_model=ServiceCatalogRead)
-async def create_service(data: ServiceCatalogCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def create_service(data: ServiceCatalogCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     service = ServiceCatalog(**data.dict())
     db.add(service)
     await db.commit()
@@ -56,7 +56,7 @@ async def create_service(data: ServiceCatalogCreate, db: AsyncSession = Depends(
     return service
 
 @app.put("/services/{service_id}", response_model=ServiceCatalogRead)
-async def update_service(service_id: int, data: ServiceCatalogCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def update_service(service_id: int, data: ServiceCatalogCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     result_obj = await db.execute(select(ServiceCatalog).where(ServiceCatalog.id == service_id))
     service = result_obj.scalar_one_or_none()
     if not service:
@@ -68,7 +68,7 @@ async def update_service(service_id: int, data: ServiceCatalogCreate, db: AsyncS
     return service
 
 @app.delete("/services/{service_id}")
-async def delete_service(service_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def delete_service(service_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     result_obj = await db.execute(select(ServiceCatalog).where(ServiceCatalog.id == service_id))
     service = result_obj.scalar_one_or_none()
     if not service:
