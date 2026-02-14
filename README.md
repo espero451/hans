@@ -34,7 +34,7 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 
 ## Main Functionality
 
-- **Authentication**: JWT-based login, protected endpoints.
+- **Authentication**: JWT-based login, protected endpoints, user roles (admin, staff).
 - **CRUD** operations for core entities (owners, patients, specimens, tests, services, orders, results).
 - **Orders**: Create orders for a patient with selected tests and services; `/orders/{id}` returns full order state: specimens, test_runs, service_runs, results.
 - **Specimen tracking**: Auto-create runtime specimens (= barcode).
@@ -85,10 +85,10 @@ Note: Database tables are auto-created on startup. No initial data seeding yet.
 # TODO & Current Limitations 
 
 - Routers are mounted directly on app instead of using APIRouter (to be refactored)
-- No role-based access control (all authenticated users have full access)
 - No reporting and export features
 - Minimal input validation beyond Pydantic
 - No tests (unit/integration)
+- ~~No role-based access control (all authenticated users have full access)~~
 - ~~No frontend integration yet (CORS configured for http://localhost:5173)~~
 - ~~Write Translation Table functionality~~
 - ~~Write instrument-interfaces~~
