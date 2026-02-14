@@ -319,22 +319,23 @@ async function deleteService(id: number) {
       <Card>
         <template #title>Tests</template>
         <template #content>
-          <div class="flex flex-wrap gap-2 align-items-center mb-2">
-            <InputText v-model="newTestCode" placeholder="Test Code" />
+          <div class="flex flex-wrap gap-2 align-items-center mb-2 w-full">
+            <InputText v-model="newTestCode" placeholder="Test Code" class="flex-1 min-w-0" />
             <Dropdown
               v-model="newTestSpecimenTypeId"
               :options="specimenTypeOptions"
               optionLabel="label"
               optionValue="value"
               placeholder="Select Specimen"
+              class="flex-1 min-w-0"
             />
-            <InputText v-model="newTestDescription" placeholder="Description" />
-            <InputNumber v-model="newTestPrice" placeholder="Price" />
-            <Button label="Add" @click="addTest" />
+            <InputText v-model="newTestDescription" placeholder="Description" class="flex-1 min-w-0" />
+            <InputNumber v-model="newTestPrice" placeholder="Price" class="flex-1 min-w-0" />
+            <Button label="Add" @click="addTest" class="ml-auto" />
           </div>
 
-          <DataTable :value="tests" dataKey="id" stripedRows class="mt-2">
-            <Column field="id" header="ID" />
+          <DataTable :value="tests" dataKey="id" stripedRows class="mt-2 w-full">
+            <!-- <Column field="id" header="ID" /> -->
             <Column field="code" header="Code">
               <template #body="{ data }">
                 <div v-if="editingTestId === data.id">
@@ -373,9 +374,9 @@ async function deleteService(id: number) {
                 <span v-else>{{ data.price }}</span>
               </template>
             </Column>
-            <Column header="Actions">
+            <Column header="Actions" style="width: 1%; white-space: nowrap;">
               <template #body="{ data }">
-                <div v-if="editingTestId === data.id" class="flex gap-2">
+                <div v-if="editingTestId === data.id" class="flex gap-2 justify-content-end w-full">
                   <Button
                     label="Save"
                     size="small"
@@ -389,7 +390,7 @@ async function deleteService(id: number) {
                     @click="editingTestId = null"
                   />
                 </div>
-                <div v-else class="flex gap-2">
+                <div v-else class="flex gap-2 justify-content-end w-full">
                   <Button
                     label="Edit"
                     severity="secondary"
@@ -416,15 +417,15 @@ async function deleteService(id: number) {
       <Card>
         <template #title>Tubes</template>
         <template #content>
-          <div class="flex flex-wrap gap-2 align-items-center mb-2">
-            <InputText v-model="newTubeCode" placeholder="Tube Code" />
-            <InputText v-model="newTubeName" placeholder="Name" />
-            <Textarea v-model="newTubeDesc" placeholder="Description" />
-            <Button label="Add" @click="addTube" />
+          <div class="flex flex-wrap gap-2 align-items-center mb-2 w-full">
+            <InputText v-model="newTubeCode" placeholder="Tube Code" class="flex-1 min-w-0" />
+            <InputText v-model="newTubeName" placeholder="Name" class="flex-1 min-w-0" />
+            <InputText v-model="newTubeDesc" placeholder="Description" class="flex-1 min-w-0" />
+            <Button label="Add" @click="addTube" class="ml-auto" />
           </div>
 
-          <DataTable :value="tubes" dataKey="id" stripedRows class="mt-2">
-            <Column field="id" header="ID" />
+          <DataTable :value="tubes" dataKey="id" stripedRows class="mt-2 w-full">
+            <!-- <Column field="id" header="ID" /> -->
             <Column field="code" header="Code">
               <template #body="{ data }">
                 <div v-if="editingTubeId === data.id">
@@ -449,9 +450,9 @@ async function deleteService(id: number) {
                 <span v-else>{{ data.description || "-" }}</span>
               </template>
             </Column>
-            <Column header="Actions">
+            <Column header="Actions" style="width: 1%; white-space: nowrap;">
               <template #body="{ data }">
-                <div v-if="editingTubeId === data.id" class="flex gap-2">
+                <div v-if="editingTubeId === data.id" class="flex gap-2 justify-content-end w-full">
                   <Button
                     label="Save"
                     size="small"
@@ -465,7 +466,7 @@ async function deleteService(id: number) {
                     @click="editingTubeId = null"
                   />
                 </div>
-                <div v-else class="flex gap-2">
+                <div v-else class="flex gap-2 justify-content-end w-full">
                   <Button
                     label="Edit"
                     severity="secondary"
@@ -504,11 +505,11 @@ async function deleteService(id: number) {
               placeholder="Select Tube"
             />
             <InputText v-model="newSpecimenType" placeholder="Type" />
-            <Textarea v-model="newSpecimenDesc" placeholder="Description" />
+            <InputText v-model="newSpecimenDesc" placeholder="Description" />
             <Button label="Add" @click="addSpecimen" />
           </div>
 
-          <DataTable :value="specimens" dataKey="id" stripedRows class="mt-2">
+          <DataTable :value="specimens" dataKey="id" stripedRows class="mt-2 w-full">
             <!-- <Column field="id" header="ID" /> -->
             <Column field="code" header="Code">
               <template #body="{ data }">
@@ -556,9 +557,9 @@ async function deleteService(id: number) {
                 <span v-else>{{ data.description || "-" }}</span>
               </template>
             </Column>
-            <Column header="Actions">
+            <Column header="Actions" style="width: 1%; white-space: nowrap;">
               <template #body="{ data }">
-                <div v-if="editingSpecimenId === data.id" class="flex gap-2">
+                <div v-if="editingSpecimenId === data.id" class="flex gap-2 justify-content-end w-full">
                   <Button
                     label="Save"
                     size="small"
@@ -572,7 +573,7 @@ async function deleteService(id: number) {
                     @click="editingSpecimenId = null"
                   />
                 </div>
-                <div v-else class="flex gap-2">
+                <div v-else class="flex gap-2 justify-content-end w-full">
                   <Button
                     label="Edit"
                     severity="secondary"
@@ -599,14 +600,14 @@ async function deleteService(id: number) {
       <Card>
         <template #title>Services</template>
         <template #content>
-          <div class="flex flex-wrap gap-2 align-items-center mb-2">
-            <InputText v-model="newServiceName" placeholder="Service Name" />
-            <Textarea v-model="newServiceDesc" placeholder="Description" />
-            <InputNumber v-model="newServicePrice" placeholder="Price" />
-            <Button label="Add" @click="addService" />
+          <div class="flex flex-wrap gap-2 align-items-center mb-2 w-full">
+            <InputText v-model="newServiceName" placeholder="Service Name" class="flex-1 min-w-0" />
+            <InputText v-model="newServiceDesc" placeholder="Description" class="flex-1 min-w-0" />
+            <InputNumber v-model="newServicePrice" placeholder="Price" class="flex-1 min-w-0" />
+            <Button label="Add" @click="addService" class="ml-auto" />
           </div>
 
-          <DataTable :value="services" dataKey="id" stripedRows class="mt-2">
+          <DataTable :value="services" dataKey="id" stripedRows class="mt-2 w-full">
             <Column field="name" header="Name">
               <template #body="{ data }">
                 <div v-if="editingServiceId === data.id">
@@ -631,9 +632,9 @@ async function deleteService(id: number) {
                 <span v-else>{{ data.price }}</span>
               </template>
             </Column>
-            <Column header="Actions">
+            <Column header="Actions" style="width: 1%; white-space: nowrap;">
               <template #body="{ data }">
-                <div v-if="editingServiceId === data.id" class="flex gap-2">
+                <div v-if="editingServiceId === data.id" class="flex gap-2 justify-content-end w-full">
                   <Button
                     label="Save"
                     size="small"
@@ -647,7 +648,7 @@ async function deleteService(id: number) {
                     @click="editingServiceId = null"
                   />
                 </div>
-                <div v-else class="flex gap-2">
+                <div v-else class="flex gap-2 justify-content-end w-full">
                   <Button
                     label="Edit"
                     severity="secondary"

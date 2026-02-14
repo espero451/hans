@@ -70,6 +70,11 @@ async function collectSpecimen(specimenId: string) {
   await load();
 }
 
+// Archive the order and update only the archived flag
+async function archiveOrder(id: number) {
+  const res = await api.patch(`/orders/${id}/archive`);
+  order.value.archived = res.data.archived;
+}
 </script>
 
 <template>
@@ -81,6 +86,17 @@ async function collectSpecimen(specimenId: string) {
           :value="order.archived ? 'Archived' : 'Active'"
           :severity="order.archived ? 'secondary' : 'success'"
           style="margin-left: 0.5rem"
+        />
+        <!-- <Button
+          label="Archive"
+          size="small"
+          @click="archiveOrder(order.id)"
+          :disabled="order.archived"
+        /> -->
+        &nbsp;<Button
+          :label="order.archived ? 'Unarchive' : 'Archive'"
+          size="small"
+          @click="archiveOrder(order.id)"
         />
       </template>
       <template #content>
@@ -142,7 +158,8 @@ async function collectSpecimen(specimenId: string) {
               <div v-if="data.results && data.results.length > 0">
                 <div v-for="r in data.results" :key="r.id">
                   {{ r.value || "N/A" }} {{ r.units || "" }} | Flags:
-                  {{ r.flags || "-" }} | Completed:
+                  {{ r.flags || "-" }}<br>
+                  Completed:
                   {{
                     r.completed_at
                       ? new Date(r.completed_at).toLocaleString()
@@ -167,7 +184,7 @@ async function collectSpecimen(specimenId: string) {
       </template>
     </Card>
 
-    <Card>
+    <Card v-if="order?.service_runs?.length">
       <template #title>Services</template>
       <template #content>
         <DataTable :value="order.service_runs" dataKey="id" stripedRows>

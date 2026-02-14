@@ -29,8 +29,8 @@ const router = useRouter();
 
 const items = [
   { label: "Dashboard", icon: "pi pi-home", command: () => router.push("/dashboard") },
-  { label: "Patients", icon: "pi pi-users", command: () => router.push("/patients") },
-  { label: "Owners", icon: "pi pi-id-card", command: () => router.push("/owners") },
+  { label: "Patients", icon: "pi pi-heart", command: () => router.push("/patients") },
+  { label: "Owners", icon: "pi pi-users", command: () => router.push("/owners") },
   { label: "Orders", icon: "pi pi-list-check", command: () => router.push("/orders") },
   { label: "Settings", icon: "pi pi-cog", command: () => router.push("/settings") },
 ];

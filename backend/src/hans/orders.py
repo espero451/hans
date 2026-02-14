@@ -90,6 +90,14 @@ class OrderRead(BaseModel):
         from_attributes = True
 
 
+class OrderArchivedStatusRead(BaseModel):
+    id: int
+    archived: bool
+
+    class Config:
+        from_attributes = True
+
+
 # ---------------- MODELS ----------------
 
 class Order(Base):
@@ -323,13 +331,10 @@ async def collect_specimen(
     specimen = result.scalar_one_or_none()
     if not specimen:
         raise HTTPException(404, "Specimen not found")
-
     if specimen.status == "CANCELED":
         raise HTTPException(400, "Specimen is canceled")
-
     if specimen.status in ("COLLECTED", "RECEIVED"):
         return SpecimenRead.model_validate(specimen)
-
     specimen.status = "COLLECTED"
     specimen.collected_at = datetime.utcnow()
     await db.commit()
@@ -337,6 +342,30 @@ async def collect_specimen(
 
     audit_log(user.id, f"Specimen collected {specimen_id}")
     return SpecimenRead.model_validate(specimen)
+
+
+@app.patch("/orders/{order_id}/archive", response_model=OrderArchivedStatusRead)
+async def archive_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Order).where(Order.id == order_id)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, "Order not found")
+    if order.archived == True:
+        # raise HTTPException(400, "Order is already archived")
+        order.archived = False
+    else:
+        order.archived = True
+    await db.commit()
+    await db.refresh(order)
+
+    audit_log(user.id, f"Order {order_id} archived")
+    return OrderArchivedStatusRead.model_validate(order)
 
 
 async def _fetch_order(order_id: int, db: AsyncSession) -> Optional[Order]:
