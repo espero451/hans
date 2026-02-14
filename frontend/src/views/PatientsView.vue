@@ -126,7 +126,6 @@ function ownerLabel(ownerId: number) {
       <DataTable
         :value="patients"
         dataKey="id"
-        stripedRows
         @row-click="(e) => router.push(`/patients/${e.data.id}`)"
       >
         <Column field="name" header="Name">

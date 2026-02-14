@@ -97,7 +97,7 @@ onMounted(load);
     </div>
 
     <div class="surface-card p-3 border-round-xl shadow-1">
-      <DataTable :value="owners" dataKey="id" stripedRows>
+      <DataTable :value="owners" dataKey="id">
         <Column header="Owner">
           <template #body="{ data }">
             <div v-if="editingId === data.id" class="flex gap-2">

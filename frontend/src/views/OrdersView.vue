@@ -192,7 +192,6 @@ onMounted(async () => {
       <DataTable
         :value="filteredOrders"
         dataKey="id"
-        stripedRows
         :emptyMessage="'No orders found'"
         @row-click="(e) => router.push(`/orders/${e.data.id}`)">
         <Column header="Order">

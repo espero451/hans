@@ -120,7 +120,7 @@ async function archiveOrder(id: number) {
     <Card v-if="order.id">
       <template #title>Specimens</template>
       <template #content>
-        <DataTable :value="order.specimens" dataKey="specimen_id" stripedRows>
+        <DataTable :value="order.specimens" dataKey="specimen_id">
           <Column field="specimen_id" header="Barcode" />
           <Column header="Status">
             <template #body="{ data }">
@@ -136,7 +136,7 @@ async function archiveOrder(id: number) {
     <Card>
       <template #title>Test Runs & Results</template>
       <template #content>
-        <DataTable :value="order.test_runs" dataKey="id" stripedRows>
+        <DataTable :value="order.test_runs" dataKey="id">
           <Column header="Test">
             <template #body="{ data }">
               {{ testLabel(data.test_catalog_id) }}
@@ -187,7 +187,7 @@ async function archiveOrder(id: number) {
     <Card v-if="order?.service_runs?.length">
       <template #title>Services</template>
       <template #content>
-        <DataTable :value="order.service_runs" dataKey="id" stripedRows>
+        <DataTable :value="order.service_runs" dataKey="id">
           <Column header="Service">
             <template #body="{ data }">
               {{ serviceLabel(data.service_catalog_id) }}
