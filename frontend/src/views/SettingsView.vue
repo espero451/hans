@@ -19,6 +19,7 @@ const tests = ref<any[]>([]);
 const tubes = ref<any[]>([]);
 const specimens = ref<any[]>([]);
 const services = ref<any[]>([]);
+const users = ref<any[]>([]);
 
 // "Add" forms
 const newTestCode = ref("");
@@ -39,6 +40,15 @@ const newSpecimenDesc = ref("");
 const newServiceName = ref("");
 const newServiceDesc = ref("");
 const newServicePrice = ref<number | null>(null);
+const newUserUsername = ref("");
+const newUserEmail = ref("");
+const newUserRole = ref<string | null>(null);
+const newUserPassword = ref("");
+const userRoleOptions = ref([
+  { label: "admin", value: "admin" },
+  { label: "staff", value: "staff" },
+  { label: "owner", value: "owner" },
+]);
 
 // Edit mode - Tests
 const editingTestId = ref<number | null>(null);
@@ -89,25 +99,30 @@ const specimenTypeOptions = computed(() =>
 
 // ---------- Load data ----------
 async function loadTests() {
-  const res = await api.get("/tests");
+  const res = await api.get("/tests/");
   tests.value = res.data;
 }
 
 async function loadTubes() {
-  const res = await api.get("/tubes");
+  const res = await api.get("/tubes/");
   tubes.value = res.data;
   tubeOptions.value = res.data;
 }
 
 async function loadSpecimens() {
-  const res = await api.get("/specimens");
+  const res = await api.get("/specimens/");
   specimens.value = res.data;
   specimenOptions.value = res.data;
 }
 
 async function loadServices() {
-  const res = await api.get("/services");
+  const res = await api.get("/services/");
   services.value = res.data;
+}
+
+async function loadUsers() {
+  const res = await api.get("/settings/users/");
+  users.value = res.data;
 }
 
 async function loadAll() {
@@ -124,7 +139,7 @@ async function addTest() {
   )
     return;
 
-  await api.post("/tests", {
+  await api.post("/tests/", {
     code: newTestCode.value,
     description: newTestDescription.value,
     price: newTestPrice.value,
@@ -141,7 +156,7 @@ async function addTube() {
   )
     return;
 
-  await api.post("/tubes", {
+  await api.post("/tubes/", {
     code: newTubeCode.value,
     name: newTubeName.value,
     description: newTubeDesc.value,
@@ -162,7 +177,7 @@ async function addSpecimen() {
   )
     return;
 
-  await api.post("/specimens", {
+  await api.post("/specimens/", {
     code: newSpecimenCode.value,
     name: newSpecimenName.value,
     tube_type_id: newSpecimenTubeId.value,
@@ -182,7 +197,7 @@ async function addSpecimen() {
 async function addService() {
   if (!newServiceName.value) return;
 
-  await api.post("/services", {
+  await api.post("/services/", {
     name: newServiceName.value,
     description: newServiceDesc.value,
     price: newServicePrice.value,
@@ -287,7 +302,31 @@ async function saveEditService(serviceId: number) {
   await loadServices();
 }
 
+async function addUser() {
+  if (
+    !newUserUsername.value ||
+    !newUserEmail.value ||
+    !newUserRole.value ||
+    !newUserPassword.value
+  )
+    return;
+
+  await api.post("/settings/users/", {
+    username: newUserUsername.value,
+    email: newUserEmail.value,
+    role: newUserRole.value,
+    password: newUserPassword.value,
+  });
+
+  newUserUsername.value = "";
+  newUserEmail.value = "";
+  newUserRole.value = null;
+  newUserPassword.value = "";
+  await loadUsers();
+}
+
 onMounted(loadAll);
+onMounted(loadUsers);
 
 // ---------- Delete handlers ----------
 async function deleteTest(id: number) {
@@ -334,7 +373,7 @@ async function deleteService(id: number) {
             <Button label="Add" @click="addTest" class="ml-auto" />
           </div>
 
-          <DataTable :value="tests" dataKey="id" stripedRows class="mt-2 w-full">
+          <DataTable :value="tests" dataKey="id" class="mt-2 w-full">
             <!-- <Column field="id" header="ID" /> -->
             <Column field="code" header="Code">
               <template #body="{ data }">
@@ -424,7 +463,7 @@ async function deleteService(id: number) {
             <Button label="Add" @click="addTube" class="ml-auto" />
           </div>
 
-          <DataTable :value="tubes" dataKey="id" stripedRows class="mt-2 w-full">
+          <DataTable :value="tubes" dataKey="id" class="mt-2 w-full">
             <!-- <Column field="id" header="ID" /> -->
             <Column field="code" header="Code">
               <template #body="{ data }">
@@ -509,7 +548,7 @@ async function deleteService(id: number) {
             <Button label="Add" @click="addSpecimen" />
           </div>
 
-          <DataTable :value="specimens" dataKey="id" stripedRows class="mt-2 w-full">
+          <DataTable :value="specimens" dataKey="id" class="mt-2 w-full">
             <!-- <Column field="id" header="ID" /> -->
             <Column field="code" header="Code">
               <template #body="{ data }">
@@ -607,7 +646,7 @@ async function deleteService(id: number) {
             <Button label="Add" @click="addService" class="ml-auto" />
           </div>
 
-          <DataTable :value="services" dataKey="id" stripedRows class="mt-2 w-full">
+          <DataTable :value="services" dataKey="id" class="mt-2 w-full">
             <Column field="name" header="Name">
               <template #body="{ data }">
                 <div v-if="editingServiceId === data.id">
@@ -664,6 +703,36 @@ async function deleteService(id: number) {
                 </div>
               </template>
             </Column>
+          </DataTable>
+        </template>
+      </Card>
+    </section>
+
+    <!-- ================= USERS ================= -->
+
+    <section>
+      <Card>
+        <template #title>Users</template>
+        <template #content>
+          <div class="flex flex-wrap gap-2 align-items-center mb-2 w-full">
+            <InputText v-model="newUserUsername" placeholder="Username" class="flex-1 min-w-0" />
+            <InputText v-model="newUserEmail" placeholder="Email" class="flex-1 min-w-0" />
+            <Dropdown
+              v-model="newUserRole"
+              :options="userRoleOptions"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Select Role"
+              class="flex-1 min-w-0"
+            />
+            <InputText v-model="newUserPassword" type="password" placeholder="Password" class="flex-1 min-w-0" />
+            <Button label="Add" @click="addUser" class="ml-auto" />
+          </div>
+
+          <DataTable :value="users" dataKey="id" class="mt-2 w-full">
+            <Column field="username" header="Username" />
+            <Column field="email" header="Email" />
+            <Column field="role" header="Role" />
           </DataTable>
         </template>
       </Card>

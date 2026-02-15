@@ -1,5 +1,5 @@
 from typing import Optional, List
-from fastapi import Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 
 from hans.core.db import Base, get_db
 from hans.core.auth import User, require_admin, require_staff_or_admin
-from hans.core.core import app, audit_log
+from hans.core.core import audit_log
 
 
 # ---------------- MODELS ----------------
@@ -42,12 +42,14 @@ class ServiceCatalog(Base):
 
 # ---------------- ROUTES ----------------
 
-@app.get("/services", response_model=List[ServiceCatalogRead])
+router = APIRouter(prefix="/services")
+
+@router.get("/", response_model=List[ServiceCatalogRead])
 async def get_services(db: AsyncSession = Depends(get_db), user: User = Depends(require_staff_or_admin)):
     result = await db.execute(select(ServiceCatalog).order_by(ServiceCatalog.name))
     return result.scalars().all()
 
-@app.post("/services", response_model=ServiceCatalogRead)
+@router.post("/", response_model=ServiceCatalogRead)
 async def create_service(data: ServiceCatalogCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     service = ServiceCatalog(**data.dict())
     db.add(service)
@@ -55,7 +57,7 @@ async def create_service(data: ServiceCatalogCreate, db: AsyncSession = Depends(
     audit_log(user.id, f"Created service {service.id}")
     return service
 
-@app.put("/services/{service_id}", response_model=ServiceCatalogRead)
+@router.put("/{service_id}", response_model=ServiceCatalogRead)
 async def update_service(service_id: int, data: ServiceCatalogCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     result_obj = await db.execute(select(ServiceCatalog).where(ServiceCatalog.id == service_id))
     service = result_obj.scalar_one_or_none()
@@ -67,7 +69,7 @@ async def update_service(service_id: int, data: ServiceCatalogCreate, db: AsyncS
     audit_log(user.id, f"Updated service {service_id}")
     return service
 
-@app.delete("/services/{service_id}")
+@router.delete("/{service_id}")
 async def delete_service(service_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     result_obj = await db.execute(select(ServiceCatalog).where(ServiceCatalog.id == service_id))
     service = result_obj.scalar_one_or_none()

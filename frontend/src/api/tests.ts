@@ -1,12 +1,12 @@
 import api from "./http"
 
 export async function getTests() {
-  const res = await api.get("/tests")
+  const res = await api.get("/tests/")
   return res.data
 }
 
 export async function createTest(data: any) {
-  const res = await api.post("/tests", data)
+  const res = await api.post("/tests/", data)
   return res.data
 }
 

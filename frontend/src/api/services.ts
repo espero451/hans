@@ -1,12 +1,12 @@
 import api from "./http"
 
 export async function getServices() {
-  const res = await api.get("/services")
+  const res = await api.get("/services/")
   return res.data
 }
 
 export async function createService(data: any) {
-  const res = await api.post("/services", data)
+  const res = await api.post("/services/", data)
   return res.data
 }
 

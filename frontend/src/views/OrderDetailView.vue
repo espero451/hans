@@ -39,10 +39,10 @@ async function load() {
   owner.value = ownerRes.data;
 
   // tests/services loading
-  const testsRes = await api.get(`/tests`);
+  const testsRes = await api.get(`/tests/`);
   tests.value = testsRes.data;
 
-  const servicesRes = await api.get(`/services`);
+  const servicesRes = await api.get(`/services/`);
   services.value = servicesRes.data;
 }
 

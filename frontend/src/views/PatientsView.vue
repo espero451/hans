@@ -35,7 +35,7 @@ const ownerOptions = computed(() =>
 
 // Loading patients
 async function loadPatients() {
-  const res = await api.get("/patients");
+  const res = await api.get("/patients/");
   patients.value = res.data;
 }
 
@@ -47,7 +47,7 @@ async function loadOwners() {
 // Add patient
 async function addPatient() {
   if (!name.value || !species.value || !owner_id.value) return;
-  await api.post("/patients", {
+  await api.post("/patients/", {
     name: name.value,
     species: species.value,
     owner_id: owner_id.value,

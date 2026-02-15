@@ -1,14 +1,14 @@
 from datetime import datetime
 from typing import List, Optional, Dict
 
-from fastapi import Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import ForeignKey, select, text, String, Numeric, Enum as SAEnum
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship, selectinload
 
 from hans.core.auth import User, get_current_user
-from hans.core.core import app, audit_log
+from hans.core.core import audit_log
 from hans.core.db import Base, get_db
 from hans.tests import TestCatalog
 from hans.services import ServiceCatalog
@@ -193,7 +193,9 @@ ServiceRun.service_catalog = relationship("ServiceCatalog", lazy="joined")
 
 # ---------------- ROUTES ----------------
 
-@app.post("/orders", response_model=OrderRead)
+router = APIRouter()
+
+@router.post("/orders", response_model=OrderRead)
 async def create_order(
     data: OrderCreate,
     db: AsyncSession = Depends(get_db),
@@ -271,7 +273,7 @@ async def create_order(
     return await _load_order(order.id, db)
 
 
-@app.get("/orders/{order_id}", response_model=OrderRead)
+@router.get("/orders/{order_id}", response_model=OrderRead)
 async def get_order(
     order_id: int,
     db: AsyncSession = Depends(get_db),
@@ -283,7 +285,7 @@ async def get_order(
     return OrderRead.model_validate(order)
 
 
-@app.get("/patients/{patient_id}/orders", response_model=List[OrderRead])
+@router.get("/patients/{patient_id}/orders", response_model=List[OrderRead])
 async def get_patient_orders(
     patient_id: int,
     db: AsyncSession = Depends(get_db),
@@ -303,7 +305,7 @@ async def get_patient_orders(
     return [OrderRead.model_validate(order) for order in orders]
 
 
-@app.get("/orders/barcode/{barcode}", response_model=SpecimenRead)
+@router.get("/orders/barcode/{barcode}", response_model=SpecimenRead)
 async def get_order_by_barcode(
     barcode: str,
     db: AsyncSession = Depends(get_db),
@@ -319,7 +321,7 @@ async def get_order_by_barcode(
 
 
 # Mark specimen as collected
-@app.patch("/orders/barcode/{specimen_id}/collect", response_model=SpecimenRead)
+@router.patch("/orders/barcode/{specimen_id}/collect", response_model=SpecimenRead)
 async def collect_specimen(
     specimen_id: str,
     db: AsyncSession = Depends(get_db),
@@ -344,7 +346,7 @@ async def collect_specimen(
     return SpecimenRead.model_validate(specimen)
 
 
-@app.patch("/orders/{order_id}/archive", response_model=OrderArchivedStatusRead)
+@router.patch("/orders/{order_id}/archive", response_model=OrderArchivedStatusRead)
 async def archive_order(
     order_id: int,
     db: AsyncSession = Depends(get_db),

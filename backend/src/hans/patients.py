@@ -1,13 +1,13 @@
 from datetime import date, datetime
 from typing import Optional, List
-from fastapi import Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import ForeignKey, Date
 
-from hans.core.core import app, audit_log
+from hans.core.core import audit_log
 from hans.core.db import Base, get_db
 from hans.core.auth import get_current_user, User
 from hans.owners import Owner
@@ -52,12 +52,14 @@ class Patient(Base):
 
 # ---------------- ROUTES ----------------
 
-@app.get("/patients", response_model=List[PatientRead])
+router = APIRouter(prefix="/patients")
+
+@router.get("/", response_model=List[PatientRead])
 async def get_patients(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user), skip: int = 0, limit: int = 100):
     result = await db.execute(select(Patient).offset(skip).limit(limit).order_by(Patient.name))
     return result.scalars().all()
 
-@app.post("/patients")
+@router.post("/")
 async def create_patient(data: PatientCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     patient = Patient(**data.dict())
     db.add(patient)
@@ -65,7 +67,7 @@ async def create_patient(data: PatientCreate, db: AsyncSession = Depends(get_db)
     audit_log(user.id, f"Created patient {patient.id}")
     return patient
 
-@app.put("/patients/{patient_id}")
+@router.put("/{patient_id}")
 async def update_patient(patient_id: int, data: PatientCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(select(Patient).where(Patient.id == patient_id))
     patient = result.scalar_one_or_none()
@@ -77,7 +79,7 @@ async def update_patient(patient_id: int, data: PatientCreate, db: AsyncSession 
     audit_log(user.id, f"Updated patient {patient_id}")
     return patient
 
-@app.delete("/patients/{patient_id}")
+@router.delete("/{patient_id}")
 async def delete_patient(patient_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(select(Patient).where(Patient.id == patient_id))
     patient = result.scalar_one_or_none()
@@ -88,7 +90,7 @@ async def delete_patient(patient_id: int, db: AsyncSession = Depends(get_db), us
     audit_log(user.id, f"Deleted patient {patient_id}")
     return {"ok": True}
 
-@app.get("/patients/{patient_id}")
+@router.get("/{patient_id}")
 async def get_patient(patient_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(select(Patient).where(Patient.id == patient_id))
     patient = result.scalar_one_or_none()

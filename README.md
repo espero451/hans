@@ -84,13 +84,13 @@ Note: Database tables are auto-created on startup. No initial data seeding yet.
 
 # TODO & Current Limitations 
 
-- Routers are mounted directly on app instead of using APIRouter (to be refactored)
 - No reporting and export features
-- Minimal input validation beyond Pydantic
 - No tests (unit/integration)
-- ~~No role-based access control (all authenticated users have full access)~~
-- ~~No frontend integration yet (CORS configured for http://localhost:5173)~~
+- Minimal input validation beyond Pydantic
+- ~~Routers are mounted directly on app instead of using APIRouter (to be refactored)~~
 - ~~Write Translation Table functionality~~
 - ~~Write instrument-interfaces~~
+- ~~No role-based access control (all authenticated users have full access)~~
+- ~~No frontend integration yet (CORS configured for http://localhost:5173)~~
 
 (*In memory of Hans, a cat who was lost and never came back.*)

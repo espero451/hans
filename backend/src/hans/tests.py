@@ -1,5 +1,5 @@
 from typing import Optional, List
-from fastapi import Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import ForeignKey, String, Numeric
 from sqlalchemy.exc import IntegrityError
@@ -9,7 +9,7 @@ from sqlalchemy.future import select
 
 from hans.core.db import Base, get_db
 from hans.core.auth import User, require_admin, require_staff_or_admin
-from hans.core.core import app, audit_log
+from hans.core.core import audit_log
 
 
 # ---------------- MODELS ----------------
@@ -46,12 +46,14 @@ class TestCatalog(Base):
 
 # ---------------- ROUTES ----------------
 
-@app.get("/tests", response_model=List[TestCatalogRead])
+router = APIRouter(prefix="/tests")
+
+@router.get("/", response_model=List[TestCatalogRead])
 async def get_tests(db: AsyncSession = Depends(get_db), user: User = Depends(require_staff_or_admin)):
     result = await db.execute(select(TestCatalog).order_by(TestCatalog.code))
     return result.scalars().all()
 
-@app.post("/tests", response_model=TestCatalogRead)
+@router.post("/", response_model=TestCatalogRead)
 async def create_test(data: TestCatalogCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     test = TestCatalog(**data.dict())
     db.add(test)
@@ -63,7 +65,7 @@ async def create_test(data: TestCatalogCreate, db: AsyncSession = Depends(get_db
     audit_log(user.id, f"Created test {test.id}")
     return test
 
-@app.put("/tests/{test_id}", response_model=TestCatalogRead)
+@router.put("/{test_id}", response_model=TestCatalogRead)
 async def update_test(test_id: int, data: TestCatalogCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     result_obj = await db.execute(select(TestCatalog).where(TestCatalog.id == test_id))
     test = result_obj.scalar_one_or_none()
@@ -75,7 +77,7 @@ async def update_test(test_id: int, data: TestCatalogCreate, db: AsyncSession = 
     audit_log(user.id, f"Updated test {test_id}")
     return test
 
-@app.delete("/tests/{test_id}")
+@router.delete("/{test_id}")
 async def delete_test(test_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
     result_obj = await db.execute(select(TestCatalog).where(TestCatalog.id == test_id))
     test = result_obj.scalar_one_or_none()

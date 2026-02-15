@@ -109,12 +109,12 @@ const resultsSummary = computed(
 );
 
 async function loadOwners() {
-  const res = await api.get("/owners");
+  const res = await api.get("/owners/");
   owners.value = res.data;
 }
 
 async function loadPatients() {
-  const res = await api.get("/patients");
+  const res = await api.get("/patients/");
   patients.value = res.data;
 }
 

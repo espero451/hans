@@ -1,6 +1,6 @@
 from typing import Optional, List
 
-from fastapi import Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +9,7 @@ from sqlalchemy import ForeignKey, String
 
 from hans.core.db import Base, get_db
 from hans.core.auth import get_current_user, User
-from hans.core.core import app, audit_log
+from hans.core.core import audit_log
 
 
 # ---------------- SCHEMAS ----------------
@@ -68,13 +68,15 @@ class Workstation(Base):
 
 # ---------------- ROUTES ----------------
 
-@app.get("/instruments", response_model=List[InstrumentRead])
+router = APIRouter()
+
+@router.get("/instruments", response_model=List[InstrumentRead])
 async def get_instruments(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(select(Instrument).order_by(Instrument.name))
     return result.scalars().all()
 
 
-@app.post("/instruments", response_model=InstrumentRead)
+@router.post("/instruments", response_model=InstrumentRead)
 async def create_instrument(data: InstrumentCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     instrument = Instrument(**data.dict())
     db.add(instrument)
@@ -83,7 +85,7 @@ async def create_instrument(data: InstrumentCreate, db: AsyncSession = Depends(g
     return instrument
 
 
-@app.put("/instruments/{instrument_id}", response_model=InstrumentRead)
+@router.put("/instruments/{instrument_id}", response_model=InstrumentRead)
 async def update_instrument(instrument_id: int, data: InstrumentCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result_obj = await db.execute(select(Instrument).where(Instrument.id == instrument_id))
     instrument = result_obj.scalar_one_or_none()
@@ -96,7 +98,7 @@ async def update_instrument(instrument_id: int, data: InstrumentCreate, db: Asyn
     return instrument
 
 
-@app.delete("/instruments/{instrument_id}")
+@router.delete("/instruments/{instrument_id}")
 async def delete_instrument(instrument_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result_obj = await db.execute(select(Instrument).where(Instrument.id == instrument_id))
     instrument = result_obj.scalar_one_or_none()
@@ -108,13 +110,13 @@ async def delete_instrument(instrument_id: int, db: AsyncSession = Depends(get_d
     return {"ok": True}
 
 
-@app.get("/workstations", response_model=List[WorkstationRead])
+@router.get("/workstations", response_model=List[WorkstationRead])
 async def get_workstations(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(select(Workstation).order_by(Workstation.name))
     return result.scalars().all()
 
 
-@app.post("/workstations", response_model=WorkstationRead)
+@router.post("/workstations", response_model=WorkstationRead)
 async def create_workstation(data: WorkstationCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     workstation = Workstation(**data.dict())
     db.add(workstation)
@@ -123,7 +125,7 @@ async def create_workstation(data: WorkstationCreate, db: AsyncSession = Depends
     return workstation
 
 
-@app.put("/workstations/{workstation_id}", response_model=WorkstationRead)
+@router.put("/workstations/{workstation_id}", response_model=WorkstationRead)
 async def update_workstation(workstation_id: int, data: WorkstationCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result_obj = await db.execute(select(Workstation).where(Workstation.id == workstation_id))
     workstation = result_obj.scalar_one_or_none()
@@ -136,7 +138,7 @@ async def update_workstation(workstation_id: int, data: WorkstationCreate, db: A
     return workstation
 
 
-@app.delete("/workstations/{workstation_id}")
+@router.delete("/workstations/{workstation_id}")
 async def delete_workstation(workstation_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result_obj = await db.execute(select(Workstation).where(Workstation.id == workstation_id))
     workstation = result_obj.scalar_one_or_none()

@@ -55,17 +55,17 @@ async function load() {
   }
 
   // tests/services loading
-  const testsRes = await api.get(`/tests`);
+  const testsRes = await api.get(`/tests/`);
   tests.value = testsRes.data;
 
-  const servicesRes = await api.get(`/services`);
+  const servicesRes = await api.get(`/services/`);
   services.value = servicesRes.data;
 }
 
 async function addOrder() {
   if (!selectedTestIds.value.length && !selectedServiceIds.value.length) return;
 
-  const res = await api.post("/orders", {
+  const res = await api.post("/orders/", {
     patient_id: patient.value.id,
     test_catalog_ids: selectedTestIds.value,
     service_catalog_ids: selectedServiceIds.value,
