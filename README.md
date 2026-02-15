@@ -20,17 +20,12 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 - Result entry and status tracking for performed tests
 - TCP server and protocol handlers for laboratory instrument integration
 
-<details>
-<summary>Screenshots</summary>
-
 <p align="center">
   <img src="docs/screenshots/orders.png" alt="Orders" width="100%">
 </p>
 <p align="center">
   <img src="docs/screenshots/settings.png" alt="Settings" width="100%">
 </p>
-
-</details>
 
 ## Main Functionality
 
@@ -55,14 +50,20 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 - Uvicorn (ASGI server)
 - Python-dotenv (environment variables)
 
-<details>
+## Database Structure (.svg)
+
+<p align="center">
+  <img src="docs/schema.svg" alt="Database schema" width="100%">
+</p>
+
+<!-- <details>
 <summary>Database Structure (.svg)</summary>
 
 <p align="center">
   <img src="docs/schema.svg" alt="Database schema" width="100%">
 </p>
 
-</details>
+</details> -->
 
 ## Quick Start
 
