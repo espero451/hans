@@ -97,6 +97,14 @@ const specimenTypeOptions = computed(() =>
   }))
 );
 
+const specimenTypeNameById = computed(() => {
+  const map = new Map<number, string>();
+  for (const s of specimenOptions.value) {
+    map.set(s.id, s.name);
+  }
+  return map;
+});
+
 // ---------- Load data ----------
 async function loadTests() {
   const res = await api.get("/tests/");
@@ -394,7 +402,7 @@ async function deleteService(id: number) {
                     placeholder="Select Specimen"
                   />
                 </div>
-                <span v-else>{{ data.specimen_type_id }}</span>
+                <span v-else>{{ specimenTypeNameById.get(data.specimen_type_id) || "-" }}</span>
               </template>
             </Column>
             <Column field="description" header="Description">
