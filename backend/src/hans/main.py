@@ -1,11 +1,5 @@
-from sqlalchemy import text
-
 from hans.core.core import app
-from hans.core.db import engine, Base
 from hans.core import auth
-# to be deleted after alembic implementation:
-from hans import users, owners, patients, orders, services, tests, specimens, tubes, instruments
-
 from hans.users import router as users_router
 from hans.owners import router as owners_router
 from hans.patients import router as patients_router
@@ -27,10 +21,13 @@ app.include_router(specimens_router, tags=["specimens"])
 app.include_router(tubes_router, tags=["tubes"])
 app.include_router(instruments_router, tags=["instruments"])
 
-# app.include_router(users_router, prefix="/users", tags=["users"])
 
-@app.on_event("startup")
-async def startup():
-    async with engine.begin() as conn:
-        await conn.execute(text("CREATE SEQUENCE IF NOT EXISTS specimen_barcode_seq"))
-        await conn.run_sync(Base.metadata.create_all)
+# if without alembic:
+# from sqlalchemy import text
+# from hans.core.db import engine, Base
+# from hans import users, owners, patients, orders, services, tests, specimens, tubes, instruments
+# @app.on_event("startup")
+# async def startup():
+#     async with engine.begin() as conn:
+#         await conn.execute(text("CREATE SEQUENCE IF NOT EXISTS specimen_barcode_seq"))
+#         await conn.run_sync(Base.metadata.create_all)
