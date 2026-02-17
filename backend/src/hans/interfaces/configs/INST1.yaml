@@ -40,9 +40,6 @@ translation:
   tests:
     - lis_code: "GLU"
       instrument_code: "0001"
-    - lis_code: "BUN"
+    - lis_code: "CHOL"
       instrument_code: "0002"
-    - lis_code: "HEM"
-      instrument_code: "0003"
-    - lis_code: "PPT"
-      instrument_code: "0004"
+
