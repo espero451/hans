@@ -7,6 +7,7 @@ import Card from "primevue/card";
 import Divider from "primevue/divider";
 import MultiSelect from "primevue/multiselect";
 import InputText from "primevue/inputtext";
+import Textarea from "primevue/textarea";
 import Tag from "primevue/tag";
 
 const route = useRoute();
@@ -18,6 +19,8 @@ const services = ref<any[]>([]);
 const selectedTestIds = ref<number[]>([]);
 const selectedServiceIds = ref<number[]>([]);
 const orderComment = ref("");
+const patientComment = ref("");
+const savingComment = ref(false);
 
 const expandedOrders = ref<Record<number, boolean>>({});
 
@@ -34,6 +37,7 @@ async function load() {
   // patient loading
   const patientRes = await api.get(`/patients/${id}`);
   patient.value = patientRes.data;
+  patientComment.value = patient.value?.comment || "";
 
   // owner loading
   if (patient.value.owner_id) {
@@ -80,6 +84,20 @@ async function addOrder() {
   orderComment.value = "";
 }
 
+async function savePatientComment() {
+  if (!patient.value) return;
+  savingComment.value = true;
+  try {
+    const res = await api.patch(`/patients/${patient.value.id}`, {
+      comment: patientComment.value || null,
+    });
+    patient.value = res.data;
+    patientComment.value = patient.value?.comment || "";
+  } finally {
+    savingComment.value = false;
+  }
+}
+
 onMounted(load);
 
 function toggleOrder(orderId: number) {
@@ -118,6 +136,17 @@ function specimenStatus(order: any, specimenId: string) {
           {{ owner.phone }})
         </p>
         <p v-else>Loading owner...</p>
+        <div class="mt-3">
+          <label class="block mb-2">Comment:</label>
+          <Textarea v-model="patientComment" rows="3" autoResize class="w-full" />
+          <div class="mt-2">
+            <Button
+              label="Save"
+              :loading="savingComment"
+              @click="savePatientComment"
+            />
+          </div>
+        </div>
       </template>
     </Card>
 

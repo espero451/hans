@@ -10,7 +10,6 @@ import InputText from "primevue/inputtext";
 import Dropdown from "primevue/dropdown";
 import DatePicker from "primevue/datepicker";
 
-// Состояние пациентов
 const patients = ref<any[]>([]);
 const name = ref("");
 const species = ref("");
