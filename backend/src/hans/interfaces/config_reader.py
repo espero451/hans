@@ -34,7 +34,6 @@ class ResponseConfig:
 @dataclass(frozen=True)
 class InterfaceConfig:
     interface_name: str
-    mode: str
     server: ServerConfig
     frame: FrameConfig
     delimiters: Dict
@@ -61,13 +60,11 @@ class InterfaceConfig:
         )
 
         translation = raw.get("translation") or {}
-        mode = raw.get("mode", "query")
         interface_name = raw.get("interface_name") or path.stem
         trace_dir = _resolve_trace_dir(raw.get("trace_dir"), default=Path.cwd() / "trace")
 
         return cls(
             interface_name=interface_name,
-            mode=mode,
             server=server,
             frame=frame,
             delimiters=delimiters,

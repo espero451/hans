@@ -3,8 +3,6 @@
 # Addressed to: `hans.interfaces.config_reader.InterfaceConfig`
 # Stable human-readable identifier used in logs and trace paths.
 interface_name: astm_base
-# Stored as `mode` (currently not referenced by the ASTM handler).
-mode: query
 
 # Addressed to: `hans.interfaces.server` handler resolver
 # Module name used to import the interface handler (`hans.interfaces.handlers.astm`).
@@ -44,7 +42,8 @@ response:
   include_patient: true
   send_empty_on_missing: true
 
-### TRANSLATION TABLE
+### TRANSLATION TABLE:
+
 # Addressed to: `hans.interfaces.translation.TranslationTable.from_data`
 # Maps LIS test codes to instrument-specific codes and back.
 # Each item in 'tests' creates one bidirectional code mapping.
