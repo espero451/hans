@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hans}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hans}
+      POSTGRES_DB: ${POSTGRES_DB:-hans}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hans}:${POSTGRES_PASSWORD:-hans}@db:5432/${POSTGRES_DB:-hans}
+      SECRET_KEY: ${SECRET_KEY:-change-me}
+    ports:
+      - "8000:8000"
+      - "5100:5100"
+    volumes:
+      - ./prod:/app/prod
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
