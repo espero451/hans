@@ -1,12 +1,12 @@
 # Interface identifier used in logs and trace paths.
-interface_name: "Coagulation Instrument"
+interface_name: "Coagulation_Instrument"
 
 # Module name used to import the interface handler (`hans.interfaces.handlers.astm`).
 handler: astm
 
 server:
-  host: 127.0.0.1
-  port: 5105
+  host: 0.0.0.0
+  port: 20200
 
 # Outbound ASTM responses are framed to `size` bytes; checksum validation is enabled/disabled.
 frame:

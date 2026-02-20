@@ -1,12 +1,12 @@
 # Interface identifier used in logs and trace paths.
-interface_name: "Instrument Example"
+interface_name: "INST1_NAME"
 
 # Module name used to import the interface handler (`hans.interfaces.handlers.astm`).
 handler: astm
 
 server:
-  host: 127.0.0.1
-  port: 5100
+  host: 0.0.0.0
+  port: 20100
 
 # Outbound ASTM responses are framed to `size` bytes; checksum validation is enabled/disabled.
 frame:
@@ -42,4 +42,6 @@ translation:
       instrument_code: "0001"
     - lis_code: "CHOL"
       instrument_code: "0002"
+    - lis_code: "CBC"
+      instrument_code: "0003"
 

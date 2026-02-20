@@ -39,8 +39,13 @@ async def _serve_one(spec: ListenerSpec) -> None:
     server = await asyncio.start_server(_handle, host=spec.host, port=spec.port)
     addr = ", ".join(str(sock.getsockname()) for sock in (server.sockets or []))
     logger.info("Listening interface=%s addr=%s", spec.interface_name, addr)
-    async with server:
-        await server.serve_forever()
+    try:
+        async with server:
+            await server.serve_forever()
+    except asyncio.CancelledError:
+        # Allow graceful shutdown on cancellation.
+        logger.info("Listener cancelled interface=%s", spec.interface_name)
+        raise
 
 
 async def run_listeners(listeners: Iterable[ListenerSpec]) -> None:
