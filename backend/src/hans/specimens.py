@@ -46,6 +46,10 @@ class SpecimenType(Base):
     tube_type_id: Mapped[int] = mapped_column(ForeignKey("tube_types.id"))
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
+    # Provide readable labels in admin dropdowns.
+    def __str__(self) -> str:
+        return self.code
+
 
 # ---------------- ROUTES ----------------
 

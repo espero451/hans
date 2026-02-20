@@ -9,6 +9,7 @@ from hans.services import router as services_router
 from hans.specimens import router as specimens_router
 from hans.tubes import router as tubes_router
 from hans.instruments import router as instruments_router
+from hans.admin import build_admin
 
 
 app.include_router(users_router, tags=["users"])
@@ -21,8 +22,10 @@ app.include_router(specimens_router, tags=["specimens"])
 app.include_router(tubes_router, tags=["tubes"])
 app.include_router(instruments_router, tags=["instruments"])
 
+# Register SQLAdmin UI and auth.
+build_admin(app)
 
-# if without alembic:
+# without alembic:
 # from sqlalchemy import text
 # from hans.core.db import engine, Base
 # from hans import users, owners, patients, orders, services, tests, specimens, tubes, instruments

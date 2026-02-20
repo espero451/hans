@@ -1,23 +1,12 @@
 import os
 from datetime import datetime
 from fastapi import FastAPI
-from pydantic_settings import BaseSettings
 from fastapi.middleware.cors import CORSMiddleware
 
+from sqlalchemy import select
+from hans.core.db import SessionLocal
 
-# ---------------- CONFIG ----------------
-
-class Settings(BaseSettings):
-    database_url: str
-    secret_key: str
-    jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 1440 # 24 hours
-
-    class Config:
-        env_file = ".env"
-
-settings = Settings()
-
+# Emit a startup banner for service logs.
 print("Hans LIS started...")
 
 
@@ -42,10 +31,35 @@ app.add_middleware(
 
 # ---------------- AUDIT LOG ----------------
 
-def audit_log(user_id: int, action: str):
+def audit_log(user_id: int, action: str) -> None:
     """Write audit log to audit/YYYY-MM-DD.log"""
     date_str = datetime.utcnow().strftime("%Y-%m-%d")
     path = "../prod/audit"
     os.makedirs(path, exist_ok=True)
     with open(f"{path}/{date_str}.log", "a") as f:
         f.write(f"{datetime.utcnow()} | user_id={user_id} | {action}\n")
+
+
+# ---------------- SEED ADMIN ----------------
+
+@app.on_event("startup")
+async def ensure_admin_user() -> None:
+    # Import auth models lazily to avoid circular imports.
+    from hans.core.auth import User, hash_password
+
+    # Check admin user
+    async with SessionLocal() as db:
+        result = await db.execute(select(User).where(User.username == "hans"))
+        user = result.scalar_one_or_none()
+        if user:
+            return
+        # Create admin
+        hashed = hash_password("hans")
+        hans = User(
+            username="hans",
+            email="hans@example.com",
+            role="admin",
+            hashed_password=hashed,
+        )
+        db.add(hans)
+        await db.commit()

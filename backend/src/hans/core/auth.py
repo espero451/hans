@@ -8,7 +8,8 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import Mapped, mapped_column
 
 # Core application objects and settings (FastAPI app instance + env config)
-from hans.core.core import app, settings
+from hans.core.core import app
+from hans.core.settings import settings
 # Database session factory and SQLAlchemy declarative base
 from hans.core.db import get_db, Base, AsyncSession
 

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import ForeignKey, String, Numeric
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -42,6 +42,8 @@ class TestCatalog(Base):
     description: Mapped[Optional[str]]
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     specimen_type_id: Mapped[int] = mapped_column(ForeignKey("specimen_types.id"))
+    # Load specimen type eagerly for admin list rendering.
+    specimen_type = relationship("SpecimenType", lazy="joined")
 
 
 # ---------------- ROUTES ----------------
