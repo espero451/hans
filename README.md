@@ -2,8 +2,6 @@
   <img src="frontend/assets/hans.png" alt="Hans LIS" width="150">
 </p>
 
-<!-- > [!CAUTION]
-> 🚨 THIS PROJECT IS UNDER ACTIVE DEVELOPMENT. USE AT YOUR OWN RISK. 🚨 -->
 
 # Hans LIS
 
@@ -34,7 +32,7 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 - **Orders**: Create orders for a patient with selected tests and services; `/orders/{id}` returns the full order state: specimens, test_runs, service_runs, results.
 - **Specimen tracking**: Auto-create runtime specimens (= barcode).
 - **Results**: View and update test results (value, units, flags, status, verification); results are stored separately and linked to test_runs (1:N).
-- **TCP Server**: LIS listens on a configurable port and dispatches incoming messages to protocol handlers.
+- **TCP Server**: LIS listens on multiple configurable ports (from YAML configs) and dispatches incoming messages to protocol handlers.
 - **ASTM Handler**: ASTM message handler for query/result processing; accepts R- and Q-records; returns O-records with test lists.
 - **Audit logging**: All CRUD operations are recorded in daily audit logs with user ID and timestamp.
 - **Instrument Emulator** (debug tool): Local script for testing ASTM communication without a real analyzer.
@@ -61,15 +59,6 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 <p align="center">
   <img src="docs/schema.svg" alt="Database schema" width="100%">
 </p>
-
-<!-- <details>
-<summary>Database Structure (.svg)</summary>
-
-<p align="center">
-  <img src="docs/schema.svg" alt="Database schema" width="100%">
-</p>
-
-</details> -->
 
 ## Quick Start (Local Dev)
 
@@ -103,6 +92,61 @@ npm run dev
 
 <!-- Note: Database tables are auto-created on startup. No initial data seeding yet. -->
 
+## Docker
+
+### How to build and run
+
+1. Create `.env` in the project root (used by Docker Compose):
+```
+POSTGRES_USER=hans
+POSTGRES_PASSWORD=hans
+POSTGRES_DB=hans
+SECRET_KEY=change-me
+```
+2. Build and start containers:
+```
+docker compose up --build
+```
+
+### Linux note
+
+- Docker uses `network_mode: host` for the backend to expose dynamic instrument ports.
+  This works only on Linux. For Docker Desktop (macOS/Windows), a different setup
+  is required (no host networking).
+
+### URLs
+
+- Backend: `http://localhost:8000`
+- Frontend: `http://localhost:8080`
+- Admin UI: `http://localhost:8000/admin` (CRUD management for all database entities)
+
+### Notes about env files
+
+- `/.env` is used by Docker Compose for container environment variables.
+- `backend/.env` is used for local backend runs (when you start FastAPI directly).
+  For local runs, start the backend from the `backend/` directory to ensure the
+  correct `.env` is loaded.
+
+### Ports and instrument interfaces
+
+- Postgres is exposed to the host on `5433` (`db` container port `5432`).
+- Frontend is exposed on `8080`.
+- Instrument interface ports come from YAML configs in
+  `backend/src/hans/interfaces/configs` (for example `20100`, `20200`).
+  Because `backend` uses `network_mode: host` in Docker, these ports are
+  listened on directly by the host with no Docker port mapping.
+
+## Dispatcher
+
+The dispatcher is a background TCP listener that loads YAML configs, opens
+instrument ports, and routes incoming messages to the appropriate protocol
+handlers.
+
+Dispatcher starts automatically with the backend.
+
+- Dispatcher status: `GET /settings/dispatcher/status`
+- Dispatcher restart: `POST /settings/dispatcher/restart`
+
 ## Database and Migrations
 
 - Migrations live in `backend/migrations`.
@@ -110,32 +154,29 @@ npm run dev
 
 ## Instrument Interfaces
 
-Start dispatcher (optional TCP instrument server) from `backend/` directory:
-```
-poetry run python -m hans.interfaces.dispatcher
-```
-
 Configuration files live in `backend/src/hans/interfaces/configs`. Each config defines interface name, host, port, and test codes translation.
 
-Instrument emulator:
+**Instrument emulator:**
 ```
 python tools/instrument_emulator.py
 ```
+Make sure the emulator port matches one of the configured interface ports
+(for example `20100` or `20200` in the YAML configs).
 
 ## Logs and Traces
 
 - Audit logs: `prod/audit/YYYY-MM-DD.log`
 - Instrument traces: `prod/instruments/<interface>/<date>/`
 
+## Default Admin
+
+On first startup, the app seeds an admin user `hans` with password `hans`.
+Change these credentials for production use.
+
 # TODO & Current Limitations 
 
 - No reporting and export features
 - No tests (unit/integration)
-- Minimal input validation beyond Pydantic
-- ~~Routers are mounted directly on app instead of using APIRouter (to be refactored)~~
-- ~~Write Translation Table functionality~~
-- ~~Write instrument-interfaces~~
-- ~~No role-based access control (all authenticated users have full access)~~
-- ~~No frontend integration yet (CORS configured for http://localhost:5173)~~
+
 
 (*In memory of Hans, a cat who was lost and never came back.*)
