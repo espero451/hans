@@ -13,7 +13,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]  # base dir
 sys.path.insert(0, str(BASE_DIR / "src"))  # src path
 
 from hans.core.db import Base
-from hans.core.core import settings
+from hans.core.settings import settings
 
 import hans.core.auth
 import hans.owners
