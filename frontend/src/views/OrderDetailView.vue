@@ -127,6 +127,16 @@ async function archiveOrder(id: number) {
               <Tag :value="data.status" severity="info" />
             </template>
           </Column>
+          <Column header="Actions">
+            <template #body="{ data }">
+              <Button
+                label="Collect"
+                size="small"
+                @click="collectSpecimen(data.specimen_id)"
+                :disabled="data.status === 'COLLECTED'"
+              />
+            </template>
+          </Column>
         </DataTable>
       </template>
     </Card>
@@ -168,16 +178,6 @@ async function archiveOrder(id: number) {
                 </div>
               </div>
               <span v-else>No results yet</span>
-            </template>
-          </Column>
-          <Column header="Actions">
-            <template #body="{ data }">
-              <Button
-                label="Collect"
-                size="small"
-                @click="collectSpecimen(data.specimen_id)"
-                :disabled="specimenStatus(data.specimen_id) === 'COLLECTED'"
-              />
             </template>
           </Column>
         </DataTable>
