@@ -2,9 +2,9 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-hans}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hans}
-      POSTGRES_DB: ${POSTGRES_DB:-hans}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -22,12 +22,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    user: "${UID}:${GID}"
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hans}:${POSTGRES_PASSWORD:-hans}@db:5432/${POSTGRES_DB:-hans}
-      SECRET_KEY: ${SECRET_KEY:-change-me}
-    ports:
-      - "8000:8000"
-      - "5100:5100"
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5433/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
+    network_mode: host
     volumes:
       - ./prod:/app/prod
     restart: unless-stopped
