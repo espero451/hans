@@ -2,7 +2,7 @@ from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import ForeignKey, String
@@ -12,7 +12,7 @@ from hans.core.auth import get_current_user, User
 from hans.core.core import audit_log
 
 
-# ---------------- SCHEMAS ----------------
+# --- SCHEMAS ---------------------------------------------------------
 
 class InstrumentCreate(BaseModel):
     code: str
@@ -46,7 +46,7 @@ class WorkstationRead(BaseModel):
         from_attributes = True
 
 
-# ---------------- MODELS ----------------
+# --- MODELS ----------------------------------------------------------
 
 class Instrument(Base):
     __tablename__ = "instruments"
@@ -64,9 +64,11 @@ class Workstation(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     instrument_id: Mapped[Optional[int]] = mapped_column(ForeignKey("instruments.id"))
+    # Load instrument details for admin list rendering.
+    instrument = relationship("Instrument", lazy="joined")
 
 
-# ---------------- ROUTES ----------------
+# --- ROUTES ----------------------------------------------------------
 
 router = APIRouter()
 

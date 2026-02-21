@@ -1,0 +1,1 @@
+poetry run uvicorn hans.main:app --reload

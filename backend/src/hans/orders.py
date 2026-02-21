@@ -189,6 +189,16 @@ Order.service_runs = relationship("ServiceRun", backref="order", lazy="selectin"
 TestRun.results = relationship("Result", backref="test_run", lazy="selectin")
 TestRun.test_catalog = relationship("TestCatalog", lazy="joined")
 ServiceRun.service_catalog = relationship("ServiceCatalog", lazy="joined")
+# Load related entities for admin list rendering.
+Order.patient = relationship("Patient", lazy="joined")
+Order.creator = relationship(
+    "User",
+    lazy="joined",
+    foreign_keys=[Order.created_by],
+)
+Specimen.specimen_type = relationship("SpecimenType", lazy="joined")
+TestRun.workstation = relationship("Workstation", lazy="joined")
+TestRun.instrument = relationship("Instrument", lazy="joined")
 
 
 # ---------------- ROUTES ----------------
@@ -305,19 +315,19 @@ async def get_patient_orders(
     return [OrderRead.model_validate(order) for order in orders]
 
 
-@router.get("/orders/barcode/{barcode}", response_model=SpecimenRead)
-async def get_order_by_barcode(
-    barcode: str,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    result = await db.execute(
-        select(Specimen).where(Specimen.specimen_id == barcode)
-    )
-    specimen = result.scalar_one_or_none()
-    if not specimen:
-        raise HTTPException(status_code=404, detail="Specimen not found")
-    return SpecimenRead.model_validate(specimen)
+# @router.get("/orders/barcode/{barcode}", response_model=SpecimenRead)
+# async def get_order_by_barcode(
+#     barcode: str,
+#     db: AsyncSession = Depends(get_db),
+#     user: User = Depends(get_current_user),
+# ):
+#     result = await db.execute(
+#         select(Specimen).where(Specimen.specimen_id == barcode)
+#     )
+#     specimen = result.scalar_one_or_none()
+#     if not specimen:
+#         raise HTTPException(status_code=404, detail="Specimen not found")
+#     return SpecimenRead.model_validate(specimen)
 
 
 # Mark specimen as collected

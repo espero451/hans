@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import String, ForeignKey
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -45,6 +45,8 @@ class SpecimenType(Base):
     type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     tube_type_id: Mapped[int] = mapped_column(ForeignKey("tube_types.id"))
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Load tube type details for admin list rendering.
+    tube_type = relationship("TubeType", lazy="joined")
 
     # Provide readable labels in admin dropdowns.
     def __str__(self) -> str:
@@ -55,42 +57,8 @@ class SpecimenType(Base):
 
 router = APIRouter(prefix="/specimens")
 
-@router.get("/", response_model=List[SpecimenTypeRead])
-async def get_specimens(db: AsyncSession = Depends(get_db), user: User = Depends(require_staff_or_admin)):
-    result = await db.execute(select(SpecimenType).order_by(SpecimenType.id))
-    return result.scalars().all()
+# @router.get("/", response_model=List[SpecimenTypeRead])
+# async def get_specimens(db: AsyncSession = Depends(get_db), user: User = Depends(require_staff_or_admin)):
+#     result = await db.execute(select(SpecimenType).order_by(SpecimenType.id))
+#     return result.scalars().all()
 
-@router.post("/", response_model=SpecimenTypeRead)
-async def create_specimen(data: SpecimenTypeCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
-    specimen_type = SpecimenType(**data.dict())
-    db.add(specimen_type)
-    try:
-        await db.commit()
-    except IntegrityError:
-        await db.rollback()
-        raise HTTPException(409, "Specimen code already exists")
-    audit_log(user.id, f"Created specimen_type {specimen_type.id}")
-    return specimen_type
-
-@router.put("/{specimen_id}", response_model=SpecimenTypeRead)
-async def update_specimen(specimen_id: int, data: SpecimenTypeCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
-    result_obj = await db.execute(select(SpecimenType).where(SpecimenType.id == specimen_id))
-    specimen_type = result_obj.scalar_one_or_none()
-    if not specimen_type:
-        raise HTTPException(404, "Specimen type not found")
-    for key, value in data.dict().items():
-        setattr(specimen_type, key, value)
-    await db.commit()
-    audit_log(user.id, f"Updated specimen_type {specimen_id}")
-    return specimen_type
-
-@router.delete("/{specimen_id}")
-async def delete_specimen(specimen_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(require_admin)):
-    result_obj = await db.execute(select(SpecimenType).where(SpecimenType.id == specimen_id))
-    specimen_type = result_obj.scalar_one_or_none()
-    if not specimen_type:
-        raise HTTPException(404, "Specimen type not found")
-    await db.delete(specimen_type)
-    await db.commit()
-    audit_log(user.id, f"Deleted specimen_type {specimen_id}")
-    return {"ok": True}

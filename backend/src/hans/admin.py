@@ -109,6 +109,14 @@ class PatientAdmin(ModelView, model=Patient):
         Patient.created_at,
         Patient.comment,
     ]
+    # Show owner name instead of raw ID.
+    column_labels = {"owner_id": "owner"}
+    column_formatters = {
+        "owner_id": lambda model, attr: (
+            f"{getattr(model.owner, 'first_name', '')} "
+            f"{getattr(model.owner, 'last_name', '')}"
+        ).strip(),
+    }
 
 
 class OrderAdmin(ModelView, model=Order):
@@ -120,6 +128,12 @@ class OrderAdmin(ModelView, model=Order):
         Order.archived,
         Order.comment,
     ]
+    # Show related patient and creator details.
+    column_labels = {"patient_id": "patient", "created_by": "created by"}
+    column_formatters = {
+        "patient_id": lambda model, attr: getattr(model.patient, "name", ""),
+        "created_by": lambda model, attr: getattr(model.creator, "username", ""),
+    }
 
 
 class SpecimenAdmin(ModelView, model=Specimen):
@@ -131,6 +145,11 @@ class SpecimenAdmin(ModelView, model=Specimen):
         Specimen.collected_at,
         Specimen.received_at,
     ]
+    # Render specimen type code instead of raw ID.
+    column_labels = {"specimen_type_id": "specimen type"}
+    column_formatters = {
+        "specimen_type_id": lambda model, attr: getattr(model.specimen_type, "code", ""),
+    }
 
 
 class TestRunAdmin(ModelView, model=TestRun):
@@ -144,17 +163,17 @@ class TestRunAdmin(ModelView, model=TestRun):
         TestRun.status,
         TestRun.price,
     ]
-
-
-class ServiceRunAdmin(ModelView, model=ServiceRun):
-    column_list = [
-        ServiceRun.id,
-        ServiceRun.order_id,
-        ServiceRun.service_catalog_id,
-        ServiceRun.status,
-        ServiceRun.price,
-        ServiceRun.completed_at,
-    ]
+    # Show related test, workstation, and instrument values.
+    column_labels = {
+        "test_catalog_id": "test",
+        "workstation_id": "workstation",
+        "instrument_id": "instrument",
+    }
+    column_formatters = {
+        "test_catalog_id": lambda model, attr: getattr(model.test_catalog, "code", ""),
+        "workstation_id": lambda model, attr: getattr(model.workstation, "name", ""),
+        "instrument_id": lambda model, attr: getattr(model.instrument, "code", ""),
+    }
 
 
 class ResultAdmin(ModelView, model=Result):
@@ -167,6 +186,22 @@ class ResultAdmin(ModelView, model=Result):
         Result.completed_at,
         Result.verified,
     ]
+
+
+class ServiceRunAdmin(ModelView, model=ServiceRun):
+    column_list = [
+        ServiceRun.id,
+        ServiceRun.order_id,
+        ServiceRun.service_catalog_id,
+        ServiceRun.status,
+        ServiceRun.price,
+        ServiceRun.completed_at,
+    ]
+    # Show service name instead of raw ID.
+    column_labels = {"service_catalog_id": "service"}
+    column_formatters = {
+        "service_catalog_id": lambda model, attr: getattr(model.service_catalog, "name", ""),
+    }
 
 
 class TestCatalogAdmin(ModelView, model=TestCatalog):
@@ -184,7 +219,7 @@ class TestCatalogAdmin(ModelView, model=TestCatalog):
         TestCatalog.specimen_type_id,
     ]
     # Use friendly column headers.
-    column_labels = {"specimen_type_id": "Specimen Type"}
+    column_labels = {"specimen_type_id": "specimen type"}
     # Render specimen type code instead of raw ID.
     column_formatters = {
         "specimen_type_id": lambda model, attr: getattr(model.specimen_type, "code", ""),
@@ -211,6 +246,11 @@ class SpecimenTypeAdmin(ModelView, model=SpecimenType):
         SpecimenType.tube_type_id,
         SpecimenType.description,
     ]
+    # Show tube type code instead of raw ID.
+    column_labels = {"tube_type_id": "tube type"}
+    column_formatters = {
+        "tube_type_id": lambda model, attr: getattr(model.tube_type, "code", ""),
+    }
 
 
 class TubeTypeAdmin(ModelView, model=TubeType):
@@ -238,6 +278,11 @@ class WorkstationAdmin(ModelView, model=Workstation):
         Workstation.name,
         Workstation.instrument_id,
     ]
+    # Show instrument code instead of raw ID.
+    column_labels = {"instrument_id": "instrument"}
+    column_formatters = {
+        "instrument_id": lambda model, attr: getattr(model.instrument, "code", ""),
+    }
 
 
 # --- Init -------------------------------------------------------------

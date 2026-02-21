@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import ForeignKey, Date
@@ -55,6 +55,8 @@ class Patient(Base):
     comment: Mapped[Optional[str]]
     birth_date: Mapped[Optional[date]] = mapped_column(Date)
     owner_id: Mapped[int] = mapped_column(ForeignKey("owners.id"))
+    # Load owner details for admin list rendering.
+    owner = relationship("Owner", lazy="joined")
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
 
