@@ -35,7 +35,7 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 - **TCP Server**: LIS listens on multiple configurable ports (from YAML configs) and dispatches incoming messages to protocol handlers.
 - **ASTM Handler**: ASTM message handler for query/result processing; accepts R- and Q-records; returns O-records with test lists.
 - **Audit logging**: All CRUD operations are recorded in daily audit logs with user ID and timestamp.
-- **Instrument Emulator** (debug tool): Local script for testing ASTM communication without a real analyzer.
+- **Instrument Emulator** (debug tool): script for testing ASTM communication without a real analyzer (part of [astmkit](https://github.com/espero451/astmkit)).
 
 ## Main Technology Stack
 
@@ -60,7 +60,9 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
   <img src="docs/schema.svg" alt="Database schema" width="100%">
 </p>
 
-## Quick Start (Local Dev)
+## Quick Start 
+
+## Local Dev (without Docker)
 
 1. Clone the repository.
 2. Create `.env` in `backend/`:
@@ -90,9 +92,7 @@ npm run dev
 7. Open Swagger UI: `http://localhost:8000/docs`
 8. Open UI (dev): `http://localhost:5173`
 
-<!-- Note: Database tables are auto-created on startup. No initial data seeding yet. -->
-
-## Docker
+## Local Dev with Docker *recommended*
 
 ### How to build and run
 
@@ -108,26 +108,23 @@ SECRET_KEY=change-me
 docker compose up --build
 ```
 
-### Linux note
-
-- Docker uses `network_mode: host` for the backend to expose dynamic instrument ports.
-  This works only on Linux. For Docker Desktop (macOS/Windows), a different setup
-  is required (no host networking).
-
 ### URLs
 
 - Backend: `http://localhost:8000`
 - Frontend: `http://localhost:8080`
 - Admin UI: `http://localhost:8000/admin` (CRUD management for all database entities)
 
-### Notes about env files
+### Notes
 
+- Docker uses `network_mode: host` for the backend to expose dynamic instrument ports.
+  This works only on Linux. For Docker Desktop (macOS/Windows), a different setup
+  is required (no host networking).
 - `/.env` is used by Docker Compose for container environment variables.
 - `backend/.env` is used for local backend runs (when you start FastAPI directly).
   For local runs, start the backend from the `backend/` directory to ensure the
   correct `.env` is loaded.
 
-### Ports and instrument interfaces
+### Ports
 
 - Postgres is exposed to the host on `5433` (`db` container port `5432`).
 - Frontend is exposed on `8080`.
@@ -136,7 +133,23 @@ docker compose up --build
   Because `backend` uses `network_mode: host` in Docker, these ports are
   listened on directly by the host with no Docker port mapping.
 
-## Dispatcher
+## Instrument Interfaces
+
+Configuration files live in `backend/src/hans/interfaces/configs`. Each config defines interface name, host, port, and test codes translation.
+
+### Instrument Emulator (astmkit)
+
+You can use [astmkit](https://github.com/espero451/astmkit) to simulate input from instrument.
+It sends an ASTM frame over TCP to a target host and prints response frames.
+
+```
+astmkit inst input.astm --port 20100
+astmkit inst input.astm --host 127.0.0.1 --port 20100
+```
+
+Make sure the emulator port matches one of the configured interface ports (`port` in the YAML configs at `backend/src/hans/interfaces/configs`).
+
+### Dispatcher
 
 The dispatcher is a background TCP listener that loads YAML configs, opens
 instrument ports, and routes incoming messages to the appropriate protocol
@@ -151,17 +164,6 @@ Dispatcher starts automatically with the backend.
 
 - Migrations live in `backend/migrations`.
 - Apply migrations with `poetry run alembic upgrade head`.
-
-## Instrument Interfaces
-
-Configuration files live in `backend/src/hans/interfaces/configs`. Each config defines interface name, host, port, and test codes translation.
-
-**Instrument emulator:**
-```
-python tools/instrument_emulator.py
-```
-Make sure the emulator port matches one of the configured interface ports
-(for example `20100` or `20200` in the YAML configs).
 
 ## Logs and Traces
 
