@@ -1,5 +1,5 @@
 # Interface identifier used in logs and trace paths.
-interface_name: "INST1_NAME"
+interface_code: "INST1"
 
 # Module name used to import the interface handler (`hans.interfaces.handlers.astm`).
 handler: astm
@@ -23,8 +23,17 @@ delimiters:
 
 # How barcode is extracted from Q records (field indexes + component splitting).
 query:
+
+  # List of ASTM record field indices where to find the barcode. The indices are numbered
+  # starting from zero (in AstmRecord.get()), that is:
+  # 0 - record type (Q, O, R, etc.)
+  # 1 - the first field after the type
+  # 2 and 3 - the third and fourth fields of the record
   barcode_field_indexes: [2, 3]
-  allow_component_split: true
+
+  # If allow_component_split=true, the value can also be split by the component separator
+  # (for example ^), and the last part is taken.
+  allow_component_split: false
 
 # Controls whether patient P records are included; `send_empty_on_missing`
 # (not used by the ASTM handler yet)
@@ -44,4 +53,3 @@ translation:
       instrument_code: "0002"
     - lis_code: "CBC"
       instrument_code: "0003"
-

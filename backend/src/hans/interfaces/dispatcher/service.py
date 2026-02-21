@@ -35,8 +35,8 @@ class DispatcherService:
         # Store lifecycle timestamps for status reporting.
         self._last_started_at = None
         self._last_stopped_at = None
-        # Keep dispatcher trace logs in the shared prod directory.
-        self._trace_dir = Path("../prod/instruments")
+        # Keep dispatcher trace logs in the shared live directory.
+        self._trace_dir = Path("../live/instruments")
 
     async def start(self) -> None:
         # Start dispatcher listeners if not running.

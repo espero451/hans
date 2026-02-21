@@ -28,7 +28,7 @@ services:
       SECRET_KEY: ${SECRET_KEY}
     network_mode: host
     volumes:
-      - ./prod:/app/prod
+      - ./live:/app/live
     restart: unless-stopped
 
   frontend:

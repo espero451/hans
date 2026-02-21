@@ -57,7 +57,7 @@ class InterfaceState:
 # --- Dispatcher Core --------------------------------------------------
 
 class Dispatcher:
-    def __init__(self, base_trace_dir: Path | str = Path("../prod/instruments")) -> None:
+    def __init__(self, base_trace_dir: Path | str = Path("../live/instruments")) -> None:
         self._base_trace_dir = Path(base_trace_dir)
         self._lock = asyncio.Lock()
         self._states: dict[str, InterfaceState] = {}
@@ -65,29 +65,29 @@ class Dispatcher:
 
     def register_state(self, state: InterfaceState) -> None:
         # Track interface state.
-        self._states[state.config.interface_name] = state
+        self._states[state.config.interface_code] = state
 
-    async def log_raw_in(self, interface_name: str, raw: str) -> None:
+    async def log_raw_in(self, interface_code: str, raw: str) -> None:
         # Write raw input trace.
-        await self._write_raw(interface_name, "input.trace", raw)
+        await self._write_raw(interface_code, "input.trace", raw)
 
-    async def log_raw_out(self, interface_name: str, raw: str) -> None:
+    async def log_raw_out(self, interface_code: str, raw: str) -> None:
         # Write raw output trace.
-        await self._write_raw(interface_name, "output.trace", raw)
+        await self._write_raw(interface_code, "output.trace", raw)
 
-    async def log_interface(self, interface_name: str, level: str, message: str) -> None:
+    async def log_interface(self, interface_code: str, level: str, message: str) -> None:
         # Write interface trace line.
-        state = self._state(interface_name)
+        state = self._state(interface_code)
         date_dir = datetime.utcnow().strftime("%Y-%m-%d")
-        key = f"{interface_name}:{date_dir}"
+        key = f"{interface_code}:{date_dir}"
         line = _format_interface_line(level, message)
-        path = self._interface_trace_path(interface_name, date_dir)
+        path = self._interface_trace_path(interface_code, date_dir)
         async with self._lock:
             path.parent.mkdir(parents=True, exist_ok=True)
             if key not in self._trace_started:
                 start = _format_interface_line(
                     "INFO",
-                    f"trace.start interface={interface_name} config={state.config_path}",
+                    f"trace.start interface={interface_code} config={state.config_path}",
                 )
                 with path.open("a", encoding="utf-8", newline="") as handle:
                     handle.write(start)
@@ -99,7 +99,7 @@ class Dispatcher:
 
     async def log_event(
         self,
-        interface_name: str,
+        interface_code: str,
         peer: str,
         direction: str,
         message_type: str,
@@ -114,7 +114,7 @@ class Dispatcher:
         test_runs = ",".join(str(item) for item in test_run_ids)
         parts = [
             f"ts={ts}",
-            f"interface={interface_name}",
+            f"interface={interface_code}",
             f"dir={direction}",
             f"type={message_type}",
             f"stage={stage}",
@@ -132,15 +132,15 @@ class Dispatcher:
                 handle.write(line)
 
     async def load_query_contexts(
-        self, interface_name: str, barcodes: list[str]
+        self, interface_code: str, barcodes: list[str]
     ) -> list[QueryContext]:
         # Load context for barcodes.
-        state = self._state(interface_name)
+        state = self._state(interface_code)
         return await _load_query_contexts(barcodes, state.translation)
 
-    async def store_results(self, interface_name: str, payloads: list) -> list[int]:
+    async def store_results(self, interface_code: str, payloads: list) -> list[int]:
         # Store results and update status.
-        state = self._state(interface_name)
+        state = self._state(interface_code)
         return await _store_results(payloads, state.translation)
 
     async def mark_sent(self, test_run_ids: list[int]) -> None:
@@ -151,28 +151,28 @@ class Dispatcher:
         # Update test runs as RECEIVED.
         await _mark_status(test_run_ids, "RECEIVED")
 
-    async def _write_raw(self, interface_name: str, filename: str, raw: str) -> None:
-        path = self._raw_path(interface_name, filename)
+    async def _write_raw(self, interface_code: str, filename: str, raw: str) -> None:
+        path = self._raw_path(interface_code, filename)
         async with self._lock:
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("a", encoding="utf-8", newline="") as handle:
                 handle.write(raw)
 
-    def _raw_path(self, interface_name: str, filename: str) -> Path:
+    def _raw_path(self, interface_code: str, filename: str) -> Path:
         date_dir = datetime.utcnow().strftime("%Y-%m-%d")
-        return self._base_trace_dir / interface_name / date_dir / filename
+        return self._base_trace_dir / interface_code / date_dir / filename
 
     def _trace_path(self) -> Path:
         date_dir = datetime.utcnow().strftime("%Y-%m-%d")
         return self._base_trace_dir / "dispatcher" / date_dir / "dispatcher.trace"
 
-    def _interface_trace_path(self, interface_name: str, date_dir: str) -> Path:
-        return self._base_trace_dir / interface_name / date_dir / f"{interface_name}.trace"
+    def _interface_trace_path(self, interface_code: str, date_dir: str) -> Path:
+        return self._base_trace_dir / interface_code / date_dir / f"{interface_code}.trace"
 
-    def _state(self, interface_name: str) -> InterfaceState:
-        if interface_name not in self._states:
-            raise KeyError(f"Interface not registered: {interface_name}")
-        return self._states[interface_name]
+    def _state(self, interface_code: str) -> InterfaceState:
+        if interface_code not in self._states:
+            raise KeyError(f"Interface not registered: {interface_code}")
+        return self._states[interface_code]
 
 
 def _format_timestamp() -> str:
@@ -448,7 +448,7 @@ async def _run_with_configs(config_paths: list[Path]) -> None:
 
         listeners.append(
             ListenerSpec(
-                interface_name=config.interface_name,
+                interface_code=config.interface_code,
                 host=config.server.host,
                 port=config.server.port,
                 handler=_make_connection_handler(state, dispatcher),

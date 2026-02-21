@@ -1,19 +1,15 @@
-# Interface identifier used in logs and trace paths.
-interface_name: "Coagulation_Instrument"
+interface_code: "COAG"
 
-# Module name used to import the interface handler (`hans.interfaces.handlers.astm`).
 handler: astm
 
 server:
   host: 0.0.0.0
   port: 20200
 
-# Outbound ASTM responses are framed to `size` bytes; checksum validation is enabled/disabled.
 frame:
   size: 240
   validate_checksum: false
 
-# Record/field/component separators used to parse incoming messages and build responses.
 delimiters:
   field: "|"
   component: "^"
@@ -21,21 +17,14 @@ delimiters:
   escape: "&"
   record: "\r"
 
-# How barcode is extracted from Q records (field indexes + component splitting).
 query:
   barcode_field_indexes: [2, 3]
   allow_component_split: true
 
-# Controls whether patient P records are included; `send_empty_on_missing`
-# (not used by the ASTM handler yet)
 response:
   include_patient: true
   send_empty_on_missing: true
 
-### TRANSLATION TABLE:
-
-# Maps LIS test codes to instrument-specific codes and back.
-# Each item in 'tests' creates one bidirectional code mapping.
 translation:
   tests:
     - lis_code: "PT"
@@ -44,6 +33,3 @@ translation:
       instrument_code: "0002"
     - lis_code: "FIB"
       instrument_code: "0003"
-
-# Base directory where traces are created.
-trace_dir: "../prod/instruments"

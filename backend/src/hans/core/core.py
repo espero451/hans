@@ -34,7 +34,7 @@ app.add_middleware(
 def audit_log(user_id: int, action: str) -> None:
     """Write audit log to audit/YYYY-MM-DD.log"""
     date_str = datetime.utcnow().strftime("%Y-%m-%d")
-    path = "../prod/audit"
+    path = "../live/audit"
     os.makedirs(path, exist_ok=True)
     with open(f"{path}/{date_str}.log", "a") as f:
         f.write(f"{datetime.utcnow()} | user_id={user_id} | {action}\n")

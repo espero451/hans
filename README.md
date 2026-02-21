@@ -167,8 +167,8 @@ Dispatcher starts automatically with the backend.
 
 ## Logs and Traces
 
-- Audit logs: `prod/audit/YYYY-MM-DD.log`
-- Instrument traces: `prod/instruments/<interface>/<date>/`
+- Audit logs: `live/audit/YYYY-MM-DD.log`
+- Instrument traces: `live/instruments/<interface>/<date>/`
 
 ## Default Admin
 

@@ -294,15 +294,20 @@ def build_admin(app: FastAPI) -> Admin:
     admin.add_view(UserAdmin)
     admin.add_view(OwnerAdmin)
     admin.add_view(PatientAdmin)
+
     admin.add_view(OrderAdmin)
     admin.add_view(SpecimenAdmin)
     admin.add_view(TestRunAdmin)
-    admin.add_view(ServiceRunAdmin)
     admin.add_view(ResultAdmin)
+
+    admin.add_view(ServiceRunAdmin)
+
     admin.add_view(TestCatalogAdmin)
     admin.add_view(ServiceCatalogAdmin)
     admin.add_view(SpecimenTypeAdmin)
     admin.add_view(TubeTypeAdmin)
+
     admin.add_view(InstrumentAdmin)
     admin.add_view(WorkstationAdmin)
+
     return admin

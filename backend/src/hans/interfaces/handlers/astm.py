@@ -9,6 +9,8 @@ from typing import Iterable, Protocol
 from ..config_reader import InterfaceConfig
 
 
+# --- Constants --------------------------------------------------------
+
 logger = logging.getLogger("hans.astm")
 
 
@@ -32,6 +34,8 @@ R_FLAGS_FIELDS = (6, 7)
 R_STATUS_FIELDS = (8, 9)
 R_COMPLETED_FIELDS = (9, 10, 12)
 
+
+# --- Data Models ------------------------------------------------------
 
 @dataclass
 class AstmDelimiters:
@@ -132,6 +136,8 @@ class ResultPayload:
     verified: bool
 
 
+# --- Protocols --------------------------------------------------------
+
 class QueryContextLike(Protocol):
     specimen_id: str
     patient_id: str | None
@@ -141,18 +147,18 @@ class QueryContextLike(Protocol):
 
 
 class AstmDispatcher(Protocol):
-    async def log_raw_in(self, interface_name: str, raw: str) -> None:
+    async def log_raw_in(self, interface_code: str, raw: str) -> None:
         ...
 
-    async def log_raw_out(self, interface_name: str, raw: str) -> None:
+    async def log_raw_out(self, interface_code: str, raw: str) -> None:
         ...
 
-    async def log_interface(self, interface_name: str, level: str, message: str) -> None:
+    async def log_interface(self, interface_code: str, level: str, message: str) -> None:
         ...
 
     async def log_event(
         self,
-        interface_name: str,
+        interface_code: str,
         peer: str,
         direction: str,
         message_type: str,
@@ -164,18 +170,20 @@ class AstmDispatcher(Protocol):
         ...
 
     async def load_query_contexts(
-        self, interface_name: str, barcodes: list[str]
+        self, interface_code: str, barcodes: list[str]
     ) -> list[QueryContextLike]:
         ...
 
     async def store_results(
-        self, interface_name: str, payloads: list[ResultPayload]
+        self, interface_code: str, payloads: list[ResultPayload]
     ) -> list[int]:
         ...
 
     async def mark_sent(self, test_run_ids: list[int]) -> None:
         ...
 
+
+# --- Parsing & Builders -----------------------------------------------
 
 def parse_message(raw: str, record_sep: str = "\r") -> AstmMessage:
     # Parse raw ASTM message.
@@ -310,6 +318,8 @@ def invalid_reason(records: list[AstmRecord]) -> str:
     return "no_q_or_r"
 
 
+# --- Session ----------------------------------------------------------
+
 class AstmSession:
     def __init__(
         self,
@@ -335,7 +345,7 @@ class AstmSession:
         # Handle one TCP session.
         peer = self._writer.get_extra_info("peername")
         await self._dispatcher.log_interface(
-            self._config.interface_name,
+            self._config.interface_code,
             "INFO",
             f"connection.open peer={_format_peer(peer)}",
         )
@@ -348,7 +358,7 @@ class AstmSession:
                     await self._handle_byte(byte)
         finally:
             await self._dispatcher.log_interface(
-                self._config.interface_name,
+                self._config.interface_code,
                 "INFO",
                 f"connection.close peer={_format_peer(peer)}",
             )
@@ -436,18 +446,18 @@ class AstmSession:
             return
 
         text = raw.decode("ascii", errors="ignore")
-        await self._dispatcher.log_raw_in(self._config.interface_name, text)
+        await self._dispatcher.log_raw_in(self._config.interface_code, text)
 
         peer = _format_peer(self._writer.get_extra_info("peername"))
         await self._dispatcher.log_interface(
-            self._config.interface_name,
+            self._config.interface_code,
             "INFO",
             f"message.received peer={peer} bytes={len(raw)}",
         )
         message = parse_message(text, record_sep=self._delimiters.record)
         message_type = classify_records(message.records)
         await self._dispatcher.log_interface(
-            self._config.interface_name,
+            self._config.interface_code,
             "INFO",
             f"message.parsed type={message_type}",
         )
@@ -455,7 +465,7 @@ class AstmSession:
         if message_type == "INVALID":
             reason = invalid_reason(message.records)
             await self._dispatcher.log_event(
-                interface_name=self._config.interface_name,
+                interface_code=self._config.interface_code,
                 peer=peer,
                 direction="IN",
                 message_type="INVALID",
@@ -464,7 +474,7 @@ class AstmSession:
                 test_run_ids=[],
             )
             await self._dispatcher.log_event(
-                interface_name=self._config.interface_name,
+                interface_code=self._config.interface_code,
                 peer=peer,
                 direction="IN",
                 message_type="INVALID",
@@ -473,7 +483,7 @@ class AstmSession:
                 test_run_ids=[],
             )
             await self._dispatcher.log_event(
-                interface_name=self._config.interface_name,
+                interface_code=self._config.interface_code,
                 peer=peer,
                 direction="IN",
                 message_type="INVALID",
@@ -483,7 +493,7 @@ class AstmSession:
                 reason=reason,
             )
             await self._dispatcher.log_interface(
-                self._config.interface_name,
+                self._config.interface_code,
                 "INFO",
                 f"message.rejected reason={reason}",
             )
@@ -498,7 +508,7 @@ class AstmSession:
                 self._config.query.allow_component_split,
             )
             await self._dispatcher.log_event(
-                interface_name=self._config.interface_name,
+                interface_code=self._config.interface_code,
                 peer=peer,
                 direction="IN",
                 message_type="QUERY",
@@ -507,13 +517,13 @@ class AstmSession:
                 test_run_ids=[],
             )
             await self._dispatcher.log_interface(
-                self._config.interface_name,
+                self._config.interface_code,
                 "INFO",
                 f"query.received barcodes={_format_csv(barcodes)}",
             )
             if not barcodes:
                 await self._dispatcher.log_event(
-                    interface_name=self._config.interface_name,
+                    interface_code=self._config.interface_code,
                     peer=peer,
                     direction="IN",
                     message_type="QUERY",
@@ -522,7 +532,7 @@ class AstmSession:
                     test_run_ids=[],
                 )
                 await self._dispatcher.log_event(
-                    interface_name=self._config.interface_name,
+                    interface_code=self._config.interface_code,
                     peer=peer,
                     direction="IN",
                     message_type="QUERY",
@@ -532,21 +542,21 @@ class AstmSession:
                     reason="missing_barcode",
                 )
                 await self._dispatcher.log_interface(
-                    self._config.interface_name,
+                    self._config.interface_code,
                     "INFO",
                     "query.rejected reason=missing_barcode",
                 )
                 return
 
             contexts = await self._dispatcher.load_query_contexts(
-                self._config.interface_name, barcodes
+                self._config.interface_code, barcodes
             )
             test_run_ids = [
                 run_id for context in contexts for run_id in context.test_run_ids if run_id
             ]
             tests_count = _count_tests(contexts)
             await self._dispatcher.log_event(
-                interface_name=self._config.interface_name,
+                interface_code=self._config.interface_code,
                 peer=peer,
                 direction="IN",
                 message_type="QUERY",
@@ -555,7 +565,7 @@ class AstmSession:
                 test_run_ids=test_run_ids,
             )
             await self._dispatcher.log_interface(
-                self._config.interface_name,
+                self._config.interface_code,
                 "INFO",
                 (
                     "query.context_loaded "
@@ -566,7 +576,7 @@ class AstmSession:
             )
             if not contexts:
                 await self._dispatcher.log_event(
-                    interface_name=self._config.interface_name,
+                    interface_code=self._config.interface_code,
                     peer=peer,
                     direction="IN",
                     message_type="QUERY",
@@ -576,7 +586,7 @@ class AstmSession:
                     reason="specimen_not_found",
                 )
                 await self._dispatcher.log_interface(
-                    self._config.interface_name,
+                    self._config.interface_code,
                     "INFO",
                     "query.rejected reason=specimen_not_found",
                 )
@@ -597,7 +607,7 @@ class AstmSession:
                 self._config.response.include_patient,
             )
             await self._dispatcher.log_interface(
-                self._config.interface_name,
+                self._config.interface_code,
                 "INFO",
                 (
                     "response.built "
@@ -617,7 +627,7 @@ class AstmSession:
         )
         barcodes = [payload.specimen_id for payload in payloads]
         await self._dispatcher.log_event(
-            interface_name=self._config.interface_name,
+            interface_code=self._config.interface_code,
             peer=peer,
             direction="IN",
             message_type="RESULT",
@@ -626,13 +636,13 @@ class AstmSession:
             test_run_ids=[],
         )
         await self._dispatcher.log_interface(
-            self._config.interface_name,
+            self._config.interface_code,
             "INFO",
             f"results.parsed barcodes={_format_csv(barcodes)} results={len(payloads)}",
         )
         if not payloads:
             await self._dispatcher.log_event(
-                interface_name=self._config.interface_name,
+                interface_code=self._config.interface_code,
                 peer=peer,
                 direction="IN",
                 message_type="RESULT",
@@ -641,7 +651,7 @@ class AstmSession:
                 test_run_ids=[],
             )
             await self._dispatcher.log_event(
-                interface_name=self._config.interface_name,
+                interface_code=self._config.interface_code,
                 peer=peer,
                 direction="IN",
                 message_type="RESULT",
@@ -651,17 +661,17 @@ class AstmSession:
                 reason="no_results",
             )
             await self._dispatcher.log_interface(
-                self._config.interface_name,
+                self._config.interface_code,
                 "INFO",
                 "results.rejected reason=no_results",
             )
             return
 
         test_run_ids = await self._dispatcher.store_results(
-            self._config.interface_name, payloads
+            self._config.interface_code, payloads
         )
         await self._dispatcher.log_event(
-            interface_name=self._config.interface_name,
+            interface_code=self._config.interface_code,
             peer=peer,
             direction="IN",
             message_type="RESULT",
@@ -670,7 +680,7 @@ class AstmSession:
             test_run_ids=test_run_ids,
         )
         await self._dispatcher.log_interface(
-            self._config.interface_name,
+            self._config.interface_code,
             "INFO",
             (
                 "results.stored "
@@ -679,7 +689,7 @@ class AstmSession:
             ),
         )
         await self._dispatcher.log_interface(
-            self._config.interface_name,
+            self._config.interface_code,
             "INFO",
             f"status.received test_run_ids={_format_csv(test_run_ids)}",
         )
@@ -696,9 +706,9 @@ class AstmSession:
             return
 
         raw = message.serialize(include_trailing_record_sep=True)
-        await self._dispatcher.log_raw_out(self._config.interface_name, raw)
+        await self._dispatcher.log_raw_out(self._config.interface_code, raw)
         await self._dispatcher.log_event(
-            interface_name=self._config.interface_name,
+            interface_code=self._config.interface_code,
             peer=peer,
             direction="OUT",
             message_type="ORDER",
@@ -710,7 +720,7 @@ class AstmSession:
         await self._send_byte(ENQ)
         if not await self._expect_ack():
             await self._dispatcher.log_event(
-                interface_name=self._config.interface_name,
+                interface_code=self._config.interface_code,
                 peer=peer,
                 direction="OUT",
                 message_type="ORDER",
@@ -720,7 +730,7 @@ class AstmSession:
                 reason="enq_failed",
             )
             await self._dispatcher.log_interface(
-                self._config.interface_name,
+                self._config.interface_code,
                 "INFO",
                 "response.failed reason=enq_failed",
             )
@@ -730,7 +740,7 @@ class AstmSession:
             await self._send_bytes(frame)
             if not await self._expect_ack():
                 await self._dispatcher.log_event(
-                    interface_name=self._config.interface_name,
+                    interface_code=self._config.interface_code,
                     peer=peer,
                     direction="OUT",
                     message_type="ORDER",
@@ -740,7 +750,7 @@ class AstmSession:
                     reason="frame_failed",
                 )
                 await self._dispatcher.log_interface(
-                    self._config.interface_name,
+                    self._config.interface_code,
                     "INFO",
                     "response.failed reason=frame_failed",
                 )
@@ -748,7 +758,7 @@ class AstmSession:
 
         await self._send_byte(EOT)
         await self._dispatcher.log_event(
-            interface_name=self._config.interface_name,
+            interface_code=self._config.interface_code,
             peer=peer,
             direction="OUT",
             message_type="ORDER",
@@ -757,7 +767,7 @@ class AstmSession:
             test_run_ids=test_run_ids,
         )
         await self._dispatcher.log_interface(
-            self._config.interface_name,
+            self._config.interface_code,
             "INFO",
             (
                 "response.sent "
@@ -767,7 +777,7 @@ class AstmSession:
         )
         await self._dispatcher.mark_sent(test_run_ids)
         await self._dispatcher.log_interface(
-            self._config.interface_name,
+            self._config.interface_code,
             "INFO",
             f"status.sent test_run_ids={_format_csv(test_run_ids)}",
         )
@@ -796,6 +806,8 @@ class AstmSession:
         self._writer.write(data)
         await self._writer.drain()
 
+
+# --- Framing ----------------------------------------------------------
 
 def calc_checksum(payload: bytes) -> str:
     # Calculate ASTM checksum.
@@ -831,6 +843,8 @@ def frame_message(message: AstmMessage, frame_size: int) -> list[bytes]:
     return frames
 
 
+# --- Utilities --------------------------------------------------------
+
 def _format_peer(peer) -> str:
     if isinstance(peer, tuple):
         return f"{peer[0]}:{peer[1]}"
@@ -846,6 +860,8 @@ def _count_tests(contexts: Iterable[QueryContextLike]) -> int:
     # Count tests across contexts.
     return sum(len(context.test_codes) for context in contexts)
 
+
+# --- Parsing Internals ------------------------------------------------
 
 def _split_records(raw: str, record_sep: str = "\r") -> list[str]:
     if not raw:

@@ -15,35 +15,35 @@ class ServerConfig:
 
 @dataclass(frozen=True)
 class FrameConfig:
-    size: int = 240
-    validate_checksum: bool = False
+    size: int
+    validate_checksum: bool = True
 
 
 @dataclass(frozen=True)
 class QueryConfig:
-    barcode_field_indexes: List[int] = field(default_factory=lambda: [2, 3])
+    barcode_field_indexes: List[int]
     allow_component_split: bool = True
 
 
 @dataclass(frozen=True)
 class ResponseConfig:
     include_patient: bool = True
-    send_empty_on_missing: bool = True
+    send_empty_on_missing: bool = False
 
 
 @dataclass(frozen=True)
 class InterfaceConfig:
-    interface_name: str
+    interface_code: str
     server: ServerConfig
     frame: FrameConfig
     delimiters: Dict
     query: QueryConfig
     response: ResponseConfig
     translation: Dict
-    trace_dir: Path
 
     @classmethod
     def load(cls, path: Path) -> "InterfaceConfig":
+        # Parse raw config data from disk.
         raw = _load_data(path)
         server = ServerConfig(**raw.get("server", {}))
         frame = FrameConfig(**raw.get("frame", {}))
@@ -51,7 +51,7 @@ class InterfaceConfig:
         delimiters = raw.get("delimiters") or {}
 
         query = QueryConfig(
-            barcode_field_indexes=raw.get("query", {}).get("barcode_field_indexes", [2, 3]),
+            barcode_field_indexes=raw.get("query", {}).get("barcode_field_indexes", [2]),
             allow_component_split=raw.get("query", {}).get("allow_component_split", True),
         )
         response = ResponseConfig(
@@ -60,30 +60,21 @@ class InterfaceConfig:
         )
 
         translation = raw.get("translation") or {}
-        interface_name = raw.get("interface_name") or path.stem
-        trace_dir = _resolve_trace_dir(raw.get("trace_dir"), default=Path.cwd() / "trace")
+        # Use explicit interface_code or fall back to the filename stem.
+        interface_code = raw.get("interface_code") or path.stem
 
         return cls(
-            interface_name=interface_name,
+            interface_code=interface_code,
             server=server,
             frame=frame,
             delimiters=delimiters,
             query=query,
             response=response,
             translation=translation,
-            trace_dir=trace_dir,
         )
 
 
-def _resolve_trace_dir(value: str | None, default: Path) -> Path:
-    if not value:
-        return default.resolve()
-    candidate = Path(value)
-    if candidate.is_absolute():
-        return candidate
-    return (Path.cwd() / candidate).resolve()
-
-
 def _load_data(path: Path) -> dict:
+    # Load YAML configuration into a plain dict.
     raw_text = path.read_text(encoding="utf-8")
     return yaml.safe_load(raw_text) or {}
