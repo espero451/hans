@@ -14,6 +14,7 @@ from sqlalchemy import select
 
 from hans.core.db import SessionLocal
 from hans.orders import Order, Specimen, TestRun, Result
+from hans.instruments import Instrument
 from hans.patients import Patient
 from hans.tests import TestCatalog
 
@@ -141,7 +142,7 @@ class Dispatcher:
     async def store_results(self, interface_code: str, payloads: list) -> list[int]:
         # Store results and update status.
         state = self._state(interface_code)
-        return await _store_results(payloads, state.translation)
+        return await _store_results(interface_code, payloads, state.translation)
 
     async def mark_sent(self, test_run_ids: list[int]) -> None:
         # Update test runs as SENT.
@@ -322,7 +323,11 @@ async def _load_one_context(
         )
 
 
-async def _store_results(payloads: list, translation: TranslationTable) -> list[int]:
+async def _store_results(
+    interface_code: str,
+    payloads: list,
+    translation: TranslationTable,
+) -> list[int]:
     # Store results and mark received.
     if not payloads:
         return []
@@ -341,6 +346,10 @@ async def _store_results(payloads: list, translation: TranslationTable) -> list[
         return []
 
     async with SessionLocal() as session:
+        instrument_result = await session.execute(
+            select(Instrument).where(Instrument.code == interface_code)
+        )
+        instrument = instrument_result.scalar_one_or_none()
         runs_result = await session.execute(
             select(TestRun, TestCatalog)
             .join(TestCatalog, TestCatalog.id == TestRun.test_catalog_id)
@@ -355,8 +364,13 @@ async def _store_results(payloads: list, translation: TranslationTable) -> list[
             test_runs[(test_run.specimen_id, test_catalog.code)] = test_run
             test_run_ids.append(test_run.id)
 
-        existing = await _load_existing_results(session, test_run_ids)
-        updated_ids = _apply_results(session, payloads, test_runs, existing, translation)
+        updated_ids = _apply_results(
+            session,
+            payloads,
+            test_runs,
+            translation,
+            instrument_id=instrument.id if instrument else None,
+        )
 
         if updated_ids:
             await session.commit()
@@ -367,8 +381,8 @@ def _apply_results(
     session,
     payloads: list,
     test_runs: dict[tuple[str, str], TestRun],
-    existing: dict[int, Result],
     translation: TranslationTable,
+    instrument_id: int | None,
 ) -> list[int]:
     updated_ids: list[int] = []
     for payload in payloads:
@@ -376,45 +390,24 @@ def _apply_results(
         test_run = test_runs.get((payload.specimen_id, lis_code))
         if not test_run:
             continue
+        if instrument_id:
+            test_run.instrument_id = instrument_id
 
-        existing_result = existing.get(test_run.id)
-        if existing_result:
-            existing_result.value = payload.value
-            existing_result.units = payload.units
-            existing_result.flags = payload.flags
-            existing_result.completed_at = payload.completed_at
-            existing_result.verified = payload.verified
-        else:
-            session.add(
-                Result(
-                    test_run_id=test_run.id,
-                    value=payload.value,
-                    units=payload.units,
-                    flags=payload.flags,
-                    completed_at=payload.completed_at,
-                    verified=payload.verified,
-                )
+        session.add(
+            Result(
+                test_run_id=test_run.id,
+                value=payload.value,
+                units=payload.units,
+                flags=payload.flags,
+                completed_at=payload.completed_at,
+                verified=payload.verified,
             )
+        )
 
         if test_run.status != "RECEIVED":
             test_run.status = "RECEIVED"
         updated_ids.append(test_run.id)
     return list({run_id for run_id in updated_ids})
-
-
-async def _load_existing_results(session, test_run_ids: list[int]) -> dict[int, Result]:
-    if not test_run_ids:
-        return {}
-    existing: dict[int, Result] = {}
-    existing_result = await session.execute(
-        select(Result)
-        .where(Result.test_run_id.in_(test_run_ids))
-        .order_by(Result.id.desc())
-    )
-    for result in existing_result.scalars():
-        if result.test_run_id not in existing:
-            existing[result.test_run_id] = result
-    return existing
 
 
 async def _mark_status(test_run_ids: list[int], status: str, skip_if: str | None = None) -> None:
