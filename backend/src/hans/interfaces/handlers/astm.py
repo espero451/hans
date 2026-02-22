@@ -33,6 +33,8 @@ R_UNITS_FIELD = 4
 R_FLAGS_FIELDS = (6, 7)
 R_STATUS_FIELDS = (8, 9)
 R_COMPLETED_FIELDS = (9, 10, 12)
+# Key used to store mapping in config translation.
+ASTM_MAPPING_KEY = "_astm_mapping"
 
 
 # --- Data Models ------------------------------------------------------
@@ -205,6 +207,113 @@ def resolve_delimiters(raw: object) -> AstmDelimiters:
     return AstmDelimiters()
 
 
+def _astm_mapping(config: InterfaceConfig) -> dict:
+    # Read ASTM mapping from translation payload.
+    translation = config.translation
+    if not isinstance(translation, dict):
+        return {}
+    mapping = translation.get(ASTM_MAPPING_KEY)
+    if isinstance(mapping, dict):
+        return mapping
+    return {}
+
+
+def _mapping_section(mapping: dict, name: str) -> dict:
+    # Return a mapping section as a dict.
+    section = mapping.get(name)
+    return section if isinstance(section, dict) else {}
+
+
+def _mapping_bool(section: dict, key: str, default: bool) -> bool:
+    # Resolve a boolean flag from mapping.
+    value = section.get(key)
+    if value is None:
+        return default
+    return bool(value)
+
+
+def _mapping_index(section: dict, key: str, default: int) -> int:
+    # Resolve a single index from mapping.
+    value = section.get(key, default)
+    if isinstance(value, list):
+        value = value[0] if value else default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _mapping_indexes(section: dict, key: str, default: Iterable[int]) -> list[int]:
+    # Resolve a list of indices from mapping.
+    value = section.get(key)
+    if value is None:
+        return [int(item) for item in default]
+    if isinstance(value, list):
+        indexes = []
+        for item in value:
+            try:
+                indexes.append(int(item))
+            except (TypeError, ValueError):
+                return [int(item) for item in default]
+        return indexes
+    try:
+        return [int(value)]
+    except (TypeError, ValueError):
+        return [int(item) for item in default]
+
+
+def _resolve_join_separator(delimiters: AstmDelimiters, rule: str | None) -> str:
+    # Resolve join separator by name.
+    if rule == "component":
+        return delimiters.component
+    if rule == "field":
+        return delimiters.field
+    if rule == "record":
+        return delimiters.record
+    return delimiters.repeat
+
+
+def _split_patient_name(name: str | None, component_sep: str) -> tuple[str, str]:
+    # Split patient name into first/last when provided as components.
+    if not name:
+        return "", ""
+    if component_sep and component_sep in name:
+        parts = [part for part in name.split(component_sep) if part]
+        if len(parts) >= 2:
+            return parts[1], parts[0]
+        return "", parts[0] if parts else ""
+    return "", name
+
+
+def _build_patient_record(
+    patient_id: str,
+    patient_name: str,
+    patient_out: dict,
+    delimiters: AstmDelimiters,
+) -> AstmRecord:
+    # Build a P record using mapping fields.
+    record = AstmRecord("P", ["P"])
+    record.set(1, "1")
+
+    patient_id_field = _mapping_index(patient_out, "patient_id_field", 3)
+    if patient_id_field >= 0:
+        record.set(patient_id_field, str(patient_id))
+
+    first_name, last_name = _split_patient_name(patient_name, delimiters.component)
+    first_name_field = _mapping_index(patient_out, "first_name_field", 6)
+    last_name_field = _mapping_index(patient_out, "last_name_field", 5)
+    if last_name_field >= 0:
+        record.set(last_name_field, last_name)
+    if first_name_field >= 0:
+        record.set(first_name_field, first_name)
+
+    dob_field = _mapping_index(patient_out, "dob_field", -1)
+    if dob_field >= 0:
+        record.set(dob_field, "")
+
+    return record
+
+
 def extract_query_barcodes(
     queries: list[AstmRecord],
     delimiters: AstmDelimiters,
@@ -226,8 +335,19 @@ def parse_results(
     delimiters: AstmDelimiters,
     barcode_indexes: Iterable[int],
     allow_component_split: bool,
+    result_fields: dict | None = None,
 ) -> list[ResultPayload]:
     # Parse O/R records into payloads.
+    # Apply mapping overrides for result fields.
+    fields = result_fields or {}
+    test_code_field = _mapping_index(fields, "test_code_field", R_TEST_CODE_FIELD)
+    test_code_component_last = _mapping_bool(fields, "component_last", True)
+    value_field = _mapping_index(fields, "value_field", R_VALUE_FIELD)
+    units_field = _mapping_index(fields, "units_field", R_UNITS_FIELD)
+    flags_fields = _mapping_indexes(fields, "flags_fields", R_FLAGS_FIELDS)
+    status_fields = _mapping_indexes(fields, "status_fields", R_STATUS_FIELDS)
+    completed_fields = _mapping_indexes(fields, "completed_fields", R_COMPLETED_FIELDS)
+
     current_specimen = ""
     parsed: dict[tuple[str, str], ResultPayload] = {}
 
@@ -247,15 +367,20 @@ def parse_results(
         if not current_specimen:
             continue
 
-        test_code = _extract_barcode(record, delimiters, [R_TEST_CODE_FIELD], True)
+        test_code = _extract_barcode(
+            record,
+            delimiters,
+            [test_code_field],
+            test_code_component_last,
+        )
         if not test_code:
             continue
 
-        value = record.get(R_VALUE_FIELD).strip() or None
-        units = record.get(R_UNITS_FIELD).strip() or None
-        flags = _first_nonempty(record, R_FLAGS_FIELDS) or None
-        status = _first_nonempty(record, R_STATUS_FIELDS)
-        completed_at = _parse_result_datetime(_first_nonempty(record, R_COMPLETED_FIELDS))
+        value = record.get(value_field).strip() or None
+        units = record.get(units_field).strip() or None
+        flags = _first_nonempty(record, flags_fields) or None
+        status = _first_nonempty(record, status_fields)
+        completed_at = _parse_result_datetime(_first_nonempty(record, completed_fields))
         verified = status.upper() in {"F", "C"} if status else False
 
         payload = ResultPayload(
@@ -276,8 +401,18 @@ def build_query_response(
     contexts: list[QueryResponseContext],
     delimiters: AstmDelimiters,
     include_patient: bool,
+    mapping: dict | None = None,
 ) -> AstmMessage:
     # Build ASTM query response message.
+    # Resolve mapping overrides for response fields.
+    mapping = mapping or {}
+    order_out = _mapping_section(mapping, "order_out")
+    patient_out = _mapping_section(mapping, "patient_out")
+    tests_field = _mapping_index(order_out, "tests_field", 4)
+    specimen_field = _mapping_index(order_out, "specimen_field", 2)
+    join_rule = order_out.get("join") or order_out.get("split")
+    join_sep = _resolve_join_separator(delimiters, join_rule)
+
     message = AstmMessage(delimiters=delimiters)
     message.add(AstmRecord("H", ["H", delimiters.header_field(), "", "", "", "", "", "", "", "P", "1"]))
 
@@ -285,11 +420,19 @@ def build_query_response(
         context = contexts[0]
         patient_id = context.patient_id or ""
         patient_name = context.patient_name or ""
-        message.add(AstmRecord("P", ["P", "1", "", str(patient_id), "", patient_name]))
+        if patient_out:
+            message.add(
+                _build_patient_record(patient_id, patient_name, patient_out, delimiters)
+            )
+        else:
+            message.add(AstmRecord("P", ["P", "1", "", str(patient_id), "", patient_name]))
 
     for idx, context in enumerate(contexts, start=1):
-        test_list = delimiters.repeat.join(context.test_codes)
-        order_record = AstmRecord("O", ["O", str(idx), context.specimen_id, "", test_list])
+        test_list = join_sep.join(context.test_codes)
+        order_record = AstmRecord("O", ["O"])
+        order_record.set(1, str(idx))
+        order_record.set(specimen_field, context.specimen_id)
+        order_record.set(tests_field, test_list)
         message.add(order_record)
 
     message.add(AstmRecord("L", ["L", "1", "N"]))
@@ -462,6 +605,23 @@ class AstmSession:
             f"message.parsed type={message_type}",
         )
 
+        # Resolve mapping overrides for message parsing.
+        mapping = _astm_mapping(self._config)
+        query_mapping = _mapping_section(mapping, "query")
+        barcode_index = _mapping_index(query_mapping, "barcode_field", -1)
+        if barcode_index < 0:
+            raise ValueError("Config must define astm_mapping.query.barcode_field.")
+        barcode_indexes = [barcode_index]
+        component_last = _mapping_bool(query_mapping, "component_last", True)
+
+        order_in = _mapping_section(mapping, "order_in")
+        specimen_index = _mapping_index(order_in, "specimen_field", -1)
+        if specimen_index < 0:
+            raise ValueError("Config must define astm_mapping.order_in.specimen_field.")
+        specimen_indexes = [specimen_index]
+        specimen_component_last = _mapping_bool(order_in, "component_last", component_last)
+        result_fields = _mapping_section(mapping, "result")
+
         if message_type == "INVALID":
             reason = invalid_reason(message.records)
             await self._dispatcher.log_event(
@@ -504,8 +664,8 @@ class AstmSession:
             barcodes = extract_query_barcodes(
                 queries,
                 message.delimiters,
-                self._config.query.barcode_field_indexes,
-                self._config.query.allow_component_split,
+                barcode_indexes,
+                component_last,
             )
             await self._dispatcher.log_event(
                 interface_code=self._config.interface_code,
@@ -605,6 +765,7 @@ class AstmSession:
                 response_contexts,
                 message.delimiters,
                 self._config.response.include_patient,
+                mapping=mapping,
             )
             await self._dispatcher.log_interface(
                 self._config.interface_code,
@@ -622,8 +783,9 @@ class AstmSession:
         payloads = parse_results(
             message.records,
             message.delimiters,
-            self._config.query.barcode_field_indexes,
-            self._config.query.allow_component_split,
+            specimen_indexes,
+            specimen_component_last,
+            result_fields=result_fields,
         )
         barcodes = [payload.specimen_id for payload in payloads]
         await self._dispatcher.log_event(

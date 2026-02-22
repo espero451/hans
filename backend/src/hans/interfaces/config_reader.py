@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 import yaml
 
@@ -20,12 +20,6 @@ class FrameConfig:
 
 
 @dataclass(frozen=True)
-class QueryConfig:
-    barcode_field_indexes: List[int]
-    allow_component_split: bool = True
-
-
-@dataclass(frozen=True)
 class ResponseConfig:
     include_patient: bool = True
     send_empty_on_missing: bool = False
@@ -37,7 +31,6 @@ class InterfaceConfig:
     server: ServerConfig
     frame: FrameConfig
     delimiters: Dict
-    query: QueryConfig
     response: ResponseConfig
     translation: Dict
 
@@ -50,16 +43,19 @@ class InterfaceConfig:
 
         delimiters = raw.get("delimiters") or {}
 
-        query = QueryConfig(
-            barcode_field_indexes=raw.get("query", {}).get("barcode_field_indexes", [2]),
-            allow_component_split=raw.get("query", {}).get("allow_component_split", True),
-        )
         response = ResponseConfig(
             include_patient=raw.get("response", {}).get("include_patient", True),
             send_empty_on_missing=raw.get("response", {}).get("send_empty_on_missing", True),
         )
 
         translation = raw.get("translation") or {}
+        # Attach ASTM mapping to translation payload for handler access.
+        if not isinstance(translation, dict):
+            translation = {}
+        astm_mapping = raw.get("astm_mapping")
+        if isinstance(astm_mapping, dict):
+            translation = dict(translation)
+            translation["_astm_mapping"] = astm_mapping
         # Use explicit interface_code or fall back to the filename stem.
         interface_code = raw.get("interface_code") or path.stem
 
@@ -68,7 +64,6 @@ class InterfaceConfig:
             server=server,
             frame=frame,
             delimiters=delimiters,
-            query=query,
             response=response,
             translation=translation,
         )

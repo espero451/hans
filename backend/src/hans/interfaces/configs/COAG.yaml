@@ -17,13 +17,47 @@ delimiters:
   escape: "&"
   record: "\r"
 
-query:
-  barcode_field_indexes: [2, 3]
-  allow_component_split: true
-
 response:
   include_patient: true
   send_empty_on_missing: true
+
+astm_mapping:
+  query:
+    record: "Q"
+    barcode_field: 2
+    component_last: true
+
+  order_in:
+    record: "O"
+    specimen_field: 2
+    tests_field: 4
+    split: "repeat"
+
+  order_out:
+    record: "O"
+    tests_field: 4
+    join: "repeat"
+
+  result:
+    record: "R"
+    test_code_field: 2
+    value_field: 3
+    units_field: 4
+    flags_fields: [6, 7]
+    status_fields: [8, 9]
+    completed_fields: [9, 10, 12]
+
+  patient_in:
+    record: "P"
+    first_name_field: 6
+    last_name_field: 5
+    dob_field: 7
+
+  patient_out:
+    record: "P"
+    first_name_field: 6
+    last_name_field: 5
+    dob_field: 7
 
 translation:
   tests:

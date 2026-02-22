@@ -21,19 +21,44 @@ delimiters:
   escape: "&"
   record: "\r"
 
-# How barcode is extracted from Q records (field indexes + component splitting).
-query:
+# ASTM field mapping for vendor-specific layouts.
+astm_mapping:
+  query:
+    record: "Q"
+    barcode_field: 2
+    component_last: false
 
-  # List of ASTM record field indices where to find the barcode. The indices are numbered
-  # starting from zero (in AstmRecord.get()), that is:
-  # 0 - record type (Q, O, R, etc.)
-  # 1 - the first field after the type
-  # 2 and 3 - the third and fourth fields of the record
-  barcode_field_indexes: [2, 3]
+  order_in:
+    record: "O"
+    specimen_field: 2
+    tests_field: 4
+    split: "repeat"
 
-  # If allow_component_split=true, the value can also be split by the component separator
-  # (for example ^), and the last part is taken.
-  allow_component_split: false
+  order_out:
+    record: "O"
+    tests_field: 4
+    join: "repeat"
+
+  result:
+    record: "R"
+    test_code_field: 2
+    value_field: 3
+    units_field: 4
+    flags_fields: [6, 7]
+    status_fields: [8, 9]
+    completed_fields: [9, 10, 12]
+
+  patient_in:
+    record: "P"
+    first_name_field: 6
+    last_name_field: 5
+    dob_field: 7
+
+  patient_out:
+    record: "P"
+    first_name_field: 6
+    last_name_field: 5
+    dob_field: 7
 
 # Controls whether patient P records are included; `send_empty_on_missing`
 # (not used by the ASTM handler yet)

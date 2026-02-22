@@ -207,6 +207,27 @@ def _resolve_handler_name(raw: dict) -> str:
     return str(handler).strip()
 
 
+def _is_astm_handler(handler_name: str) -> bool:
+    # Identify ASTM handler references.
+    name = handler_name.strip()
+    return name == "astm" or name.endswith(".astm")
+
+
+def _validate_astm_mapping(raw: dict, config_path: Path, handler_name: str) -> None:
+    # Require astm_mapping for ASTM handlers.
+    if not _is_astm_handler(handler_name):
+        return
+    mapping = raw.get("astm_mapping")
+    if not isinstance(mapping, dict):
+        raise ValueError(f"Config {config_path} must define astm_mapping.")
+    query = mapping.get("query")
+    if not isinstance(query, dict) or "barcode_field" not in query:
+        raise ValueError(f"Config {config_path} must define astm_mapping.query.barcode_field.")
+    order_in = mapping.get("order_in")
+    if not isinstance(order_in, dict) or "specimen_field" not in order_in:
+        raise ValueError(f"Config {config_path} must define astm_mapping.order_in.specimen_field.")
+
+
 def _import_handler_module(handler_name: str):
     module_path = handler_name
     if "." not in handler_name:
@@ -433,6 +454,7 @@ async def _run_with_configs(config_paths: list[Path]) -> None:
     for config_path in config_paths:
         raw = _load_raw_config(config_path)
         handler_name = _resolve_handler_name(raw)
+        _validate_astm_mapping(raw, config_path, handler_name)
         handler_module = _import_handler_module(handler_name)
         config = InterfaceConfig.load(config_path)
         translation = TranslationTable.from_data(config.translation)
