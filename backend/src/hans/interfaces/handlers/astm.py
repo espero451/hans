@@ -30,8 +30,8 @@ CONTROL_CHARS = {chr(STX), chr(ETX), chr(EOT), chr(ETB)}
 R_TEST_CODE_FIELD = 2
 R_VALUE_FIELD = 3
 R_UNITS_FIELD = 4
-R_FLAGS_FIELDS = (6, 7)
-R_STATUS_FIELDS = (8, 9)
+R_FLAGS_FIELD = 6
+R_STATUS_FIELD = 8
 R_COMPLETED_FIELDS = (9, 10, 12)
 # Key used to store mapping in config translation.
 ASTM_MAPPING_KEY = "_astm_mapping"
@@ -344,9 +344,8 @@ def parse_results(
     test_code_component_last = _mapping_bool(fields, "component_last", True)
     value_field = _mapping_index(fields, "value_field", R_VALUE_FIELD)
     units_field = _mapping_index(fields, "units_field", R_UNITS_FIELD)
-    flags_fields = _mapping_indexes(fields, "flags_fields", R_FLAGS_FIELDS)
-    status_fields = _mapping_indexes(fields, "status_fields", R_STATUS_FIELDS)
-    completed_fields = _mapping_indexes(fields, "completed_fields", R_COMPLETED_FIELDS)
+    flags_field = _mapping_index(fields, "flags_fields", R_FLAGS_FIELD)
+    status_field = _mapping_index(fields, "status_fields", R_STATUS_FIELD)
 
     current_specimen = ""
     parsed: dict[tuple[str, str], ResultPayload] = {}
@@ -378,9 +377,9 @@ def parse_results(
 
         value = record.get(value_field).strip() or None
         units = record.get(units_field).strip() or None
-        flags = _first_nonempty(record, flags_fields) or None
-        status = _first_nonempty(record, status_fields)
-        completed_at = _parse_result_datetime(_first_nonempty(record, completed_fields))
+        flags = record.get(flags_field).strip() or None
+        status = record.get(status_field).strip()
+        completed_at = _parse_result_datetime(_first_nonempty(record, R_COMPLETED_FIELDS))
         verified = status.upper() in {"F", "C"} if status else False
 
         payload = ResultPayload(

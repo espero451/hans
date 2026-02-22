@@ -44,9 +44,8 @@ astm_mapping:
     test_code_field: 2
     value_field: 3
     units_field: 4
-    flags_fields: [6, 7]
-    status_fields: [8, 9]
-    completed_fields: [9, 10, 12]
+    flags_fields: 6
+    status_fields: 8
 
   patient_in:
     record: "P"
