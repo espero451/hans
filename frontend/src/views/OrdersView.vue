@@ -53,6 +53,12 @@ function orderHasResults(order: any) {
   );
 }
 
+function urgencyRank(urgency?: string) {
+  if (urgency === "STAT") return 0;
+  if (urgency === "URGENT") return 1;
+  return 2;
+}
+
 function dateKey(input: string | Date | null) {
   if (!input) return "";
   const date = typeof input === "string" ? new Date(input) : input;
@@ -99,9 +105,11 @@ const filteredOrders = computed(() => {
     return true;
   });
 
-  return list.sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  return list.sort((a, b) => {
+    const urgencyDiff = urgencyRank(a.urgency) - urgencyRank(b.urgency);
+    if (urgencyDiff !== 0) return urgencyDiff;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 });
 
 const resultsSummary = computed(

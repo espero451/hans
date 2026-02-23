@@ -65,6 +65,25 @@ function specimenStatus(specimenId: string) {
   return specimen?.status || "N/A";
 }
 
+function urgencySeverity(urgency?: string) {
+  if (urgency === "STAT") return "danger";
+  if (urgency === "URGENT") return "warning";
+  return "secondary";
+}
+
+function formatDateTime(value?: string | Date | null) {
+  if (!value) return "N/A";
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString();
+}
+
+function isLastRun(index: number | string, runs: any[] | undefined) {
+  const numericIndex = typeof index === "string" ? Number(index) : index;
+  if (!Array.isArray(runs) || Number.isNaN(numericIndex)) return true;
+  return numericIndex >= runs.length - 1;
+}
+
 async function collectSpecimen(specimenId: string) {
   await api.patch(`/orders/barcode/${specimenId}/collect`);
   await load();
@@ -85,22 +104,29 @@ async function archiveOrder(id: number) {
         <Tag
           :value="order.archived ? 'Archived' : 'Active'"
           :severity="order.archived ? 'secondary' : 'success'"
-          style="margin-left: 0.5rem"
+          class="ml-2"
         />
-        <!-- <Button
-          label="Archive"
-          size="small"
-          @click="archiveOrder(order.id)"
-          :disabled="order.archived"
-        /> -->
-        &nbsp;<Button
+        <Tag
+          :value="order.urgency || 'ROUTINE'"
+          :severity="urgencySeverity(order.urgency)"
+          class="ml-2"
+        />
+        <Button
           :label="order.archived ? 'Unarchive' : 'Archive'"
           size="small"
           @click="archiveOrder(order.id)"
+          class="ml-2"
         />
       </template>
       <template #content>
         <div>Created: {{ new Date(order.created_at).toLocaleString() }}</div>
+        <div class="flex align-items-center gap-2">
+          <span>Urgency:</span>
+          <Tag
+            :value="order.urgency || 'ROUTINE'"
+            :severity="urgencySeverity(order.urgency)"
+          />
+        </div>
         <p v-if="patient.name">
           Patient:
           <a :href="`/patients/${order.patient_id}`">{{ patient.name }}</a> ({{
@@ -146,41 +172,49 @@ async function archiveOrder(id: number) {
     <Card>
       <template #title>Test Runs & Results</template>
       <template #content>
-        <DataTable :value="order.test_runs" dataKey="id">
-          <Column header="Test">
-            <template #body="{ data }">
-              {{ testLabel(data.test_catalog_id) }}
+        <table class="w-full">
+          <thead>
+            <tr>
+              <th class="text-left">Test</th>
+              <th class="text-left">Barcode</th>
+              <th class="text-left">Status</th>
+              <th class="text-left">Specimen Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="(run, index) in order?.test_runs || []" :key="run.id">
+              <tr>
+                <td>{{ testLabel(run.test_catalog_id) }}</td>
+                <td>{{ run.specimen_id }}</td>
+                <td><Tag :value="run.status" severity="warning" /></td>
+                <td><Tag :value="specimenStatus(run.specimen_id)" severity="info" /></td>
+              </tr>
+              <tr>
+                <td colspan="4">
+                  <div v-if="run.results && run.results.length > 0" class="flex flex-column gap-2">
+                    <div v-for="r in run.results" :key="r.id" class="overflow-auto">
+                      <div class="inline-flex gap-2 align-items-center">
+                        <span>{{ r.value || "N/A" }} {{ r.units || "" }}</span>
+                        <span>Flags: {{ r.flags || "-" }}</span>
+                        <span>Abnormal: {{ r.abnormal_flag || "-" }}</span>
+                        <span>Verified by: {{ r.verified_by ?? "-" }}</span>
+                        <span>Verified at: {{ formatDateTime(r.verified_at) }}</span>
+                        <span>Comment: {{ r.comment || "-" }}</span>
+                        <span>Completed: {{ formatDateTime(r.completed_at) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <span v-else>No results yet</span>
+                </td>
+              </tr>
+              <tr v-if="!isLastRun(index, order?.test_runs)">
+                <td colspan="4">
+                  <Divider class="my-2" />
+                </td>
+              </tr>
             </template>
-          </Column>
-          <Column field="specimen_id" header="Barcode" />
-          <Column header="Status">
-            <template #body="{ data }">
-              <Tag :value="data.status" severity="warning" />
-            </template>
-          </Column>
-          <Column header="Specimen Status">
-            <template #body="{ data }">
-              <Tag :value="specimenStatus(data.specimen_id)" severity="info" />
-            </template>
-          </Column>
-          <Column header="Results">
-            <template #body="{ data }">
-              <div v-if="data.results && data.results.length > 0">
-                <div v-for="r in data.results" :key="r.id">
-                  {{ r.value || "N/A" }} {{ r.units || "" }} | Flags:
-                  {{ r.flags || "-" }}<br>
-                  Completed:
-                  {{
-                    r.completed_at
-                      ? new Date(r.completed_at).toLocaleString()
-                      : "N/A"
-                  }}
-                </div>
-              </div>
-              <span v-else>No results yet</span>
-            </template>
-          </Column>
-        </DataTable>
+          </tbody>
+        </table>
       </template>
     </Card>
 
