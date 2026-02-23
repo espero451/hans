@@ -15,7 +15,7 @@ from hans.tests import TestCatalog
 from hans.services import ServiceCatalog
 
 
-# ---------------- SCHEMAS ----------------
+# --- SCHEMAS ---------------------------------------------------------
 
 class OrderUrgency(str, Enum):
     ROUTINE = "ROUTINE"
@@ -47,6 +47,28 @@ class ResultRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ResultCreate(BaseModel):
+    # Payload for manual result creation.
+    value: Optional[str] = None
+    units: Optional[str] = None
+    flags: Optional[str] = None
+    reference_range: Optional[str] = None
+    abnormal_flag: Optional[str] = None
+    comment: Optional[str] = None
+    completed_at: Optional[datetime] = None
+
+
+class ResultUpdate(BaseModel):
+    # Payload for manual result updates.
+    value: Optional[str] = None
+    units: Optional[str] = None
+    flags: Optional[str] = None
+    reference_range: Optional[str] = None
+    abnormal_flag: Optional[str] = None
+    comment: Optional[str] = None
+    completed_at: Optional[datetime] = None
 
 
 class SpecimenRead(BaseModel):
@@ -112,7 +134,7 @@ class OrderArchivedStatusRead(BaseModel):
         from_attributes = True
 
 
-# ---------------- MODELS ----------------
+# --- MODELS ----------------------------------------------------------
 
 class Order(Base):
     __tablename__ = "orders"
@@ -227,7 +249,7 @@ TestRun.workstation = relationship("Workstation", lazy="joined")
 TestRun.instrument = relationship("Instrument", lazy="joined")
 
 
-# ---------------- ROUTES ----------------
+# --- ROUTES ----------------------------------------------------------
 
 router = APIRouter()
 
@@ -342,21 +364,6 @@ async def get_patient_orders(
     return [OrderRead.model_validate(order) for order in orders]
 
 
-# @router.get("/orders/barcode/{barcode}", response_model=SpecimenRead)
-# async def get_order_by_barcode(
-#     barcode: str,
-#     db: AsyncSession = Depends(get_db),
-#     user: User = Depends(get_current_user),
-# ):
-#     result = await db.execute(
-#         select(Specimen).where(Specimen.specimen_id == barcode)
-#     )
-#     specimen = result.scalar_one_or_none()
-#     if not specimen:
-#         raise HTTPException(status_code=404, detail="Specimen not found")
-#     return SpecimenRead.model_validate(specimen)
-
-
 # Mark specimen as collected
 @router.patch("/orders/barcode/{specimen_id}/collect", response_model=SpecimenRead)
 async def collect_specimen(
@@ -405,6 +412,73 @@ async def archive_order(
 
     audit_log(user.id, f"Order {order_id} archived")
     return OrderArchivedStatusRead.model_validate(order)
+
+
+@router.post("/test-runs/{test_run_id}/results", response_model=ResultRead)
+async def create_result(
+    test_run_id: int,
+    data: ResultCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ResultRead:
+    # Create a manual result entry for a test run.
+    result_obj = await db.execute(select(TestRun).where(TestRun.id == test_run_id))
+    test_run = result_obj.scalar_one_or_none()
+    if not test_run:
+        raise HTTPException(404, "Test run not found")
+    result = Result(test_run_id=test_run_id, **data.dict())
+    db.add(result)
+    await db.commit()
+    await db.refresh(result)
+    audit_log(user.id, f"Created result {result.id} for test_run {test_run_id}")
+    return ResultRead.model_validate(result)
+
+
+@router.patch("/results/{result_id}", response_model=ResultRead)
+async def update_result(
+    result_id: int,
+    data: ResultUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ResultRead:
+    # Update a result using manual edits.
+    result_obj = await db.execute(select(Result).where(Result.id == result_id))
+    result = result_obj.scalar_one_or_none()
+    if not result:
+        raise HTTPException(404, "Result not found")
+    for key, value in data.dict(exclude_unset=True).items():
+        setattr(result, key, value)
+    await db.commit()
+    await db.refresh(result)
+    audit_log(user.id, f"Updated result {result_id}")
+    return ResultRead.model_validate(result)
+
+
+@router.post("/results/{result_id}/verify", response_model=ResultRead)
+async def verify_result(
+    result_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ResultRead:
+    # Toggle verification status and track the verifier.
+    result_obj = await db.execute(select(Result).where(Result.id == result_id))
+    result = result_obj.scalar_one_or_none()
+    if not result:
+        raise HTTPException(404, "Result not found")
+    if result.verified:
+        result.verified = False
+        result.verified_by = None
+        result.verified_at = None
+        action = "unverified"
+    else:
+        result.verified = True
+        result.verified_by = user.id
+        result.verified_at = datetime.utcnow()
+        action = "verified"
+    await db.commit()
+    await db.refresh(result)
+    audit_log(user.id, f"Result {result_id} {action}")
+    return ResultRead.model_validate(result)
 
 
 async def _fetch_order(order_id: int, db: AsyncSession) -> Optional[Order]:

@@ -8,6 +8,7 @@ import DataTable from "primevue/datatable";
 import Column from "primevue/column";
 import Tag from "primevue/tag";
 import Divider from "primevue/divider";
+import InputText from "primevue/inputtext";
 
 const route = useRoute();
 const patient = ref<any>(null);
@@ -15,6 +16,8 @@ const owner = ref<any>(null);
 const order = ref<any>(null);
 const tests = ref<any[]>([]);
 const services = ref<any[]>([]);
+const editingResultId = ref<number | null>(null);
+const editResult = ref<any>({});
 
 async function load() {
   const id = route.params.id;
@@ -82,6 +85,50 @@ function isLastRun(index: number | string, runs: any[] | undefined) {
   const numericIndex = typeof index === "string" ? Number(index) : index;
   if (!Array.isArray(runs) || Number.isNaN(numericIndex)) return true;
   return numericIndex >= runs.length - 1;
+}
+
+function normalizeResultField(value: string | null | undefined) {
+  if (value === "") return null;
+  return value ?? null;
+}
+
+function startEditResult(result: any) {
+  editingResultId.value = result.id;
+  editResult.value = {
+    value: result.value ?? "",
+    units: result.units ?? "",
+    flags: result.flags ?? "",
+    reference_range: result.reference_range ?? "",
+    abnormal_flag: result.abnormal_flag ?? "",
+    comment: result.comment ?? "",
+    completed_at: result.completed_at ?? "",
+  };
+}
+
+function cancelEditResult() {
+  editingResultId.value = null;
+  editResult.value = {};
+}
+
+async function saveEditResult(resultId: number) {
+  const payload = {
+    value: normalizeResultField(editResult.value.value),
+    units: normalizeResultField(editResult.value.units),
+    flags: normalizeResultField(editResult.value.flags),
+    reference_range: normalizeResultField(editResult.value.reference_range),
+    abnormal_flag: normalizeResultField(editResult.value.abnormal_flag),
+    comment: normalizeResultField(editResult.value.comment),
+    completed_at: normalizeResultField(editResult.value.completed_at),
+  };
+  await api.patch(`/results/${resultId}`, payload);
+  editingResultId.value = null;
+  editResult.value = {};
+  await load();
+}
+
+async function toggleVerifyResult(resultId: number) {
+  await api.post(`/results/${resultId}/verify`);
+  await load();
 }
 
 async function collectSpecimen(specimenId: string) {
@@ -191,18 +238,121 @@ async function archiveOrder(id: number) {
               </tr>
               <tr>
                 <td colspan="4">
-                  <div v-if="run.results && run.results.length > 0" class="flex flex-column gap-2">
-                    <div v-for="r in run.results" :key="r.id" class="overflow-auto">
-                      <div class="inline-flex gap-2 align-items-center">
-                        <span>{{ r.value || "N/A" }} {{ r.units || "" }}</span>
-                        <span>Flags: {{ r.flags || "-" }}</span>
-                        <span>Abnormal: {{ r.abnormal_flag || "-" }}</span>
-                        <span>Verified by: {{ r.verified_by ?? "-" }}</span>
-                        <span>Verified at: {{ formatDateTime(r.verified_at) }}</span>
-                        <span>Comment: {{ r.comment || "-" }}</span>
-                        <span>Completed: {{ formatDateTime(r.completed_at) }}</span>
-                      </div>
-                    </div>
+                  <div v-if="run.results && run.results.length > 0" class="overflow-auto">
+                    <DataTable :value="run.results" dataKey="id" class="p-datatable-sm">
+                      <Column header="Value">
+                        <template #body="{ data }">
+                          <InputText
+                            v-if="editingResultId === data.id"
+                            v-model="editResult.value"
+                            placeholder="Value"
+                          />
+                          <span v-else>{{ data.value || "-" }}</span>
+                        </template>
+                      </Column>
+                      <Column header="Units">
+                        <template #body="{ data }">
+                          <InputText
+                            v-if="editingResultId === data.id"
+                            v-model="editResult.units"
+                            placeholder="Units"
+                          />
+                          <span v-else>{{ data.units || "-" }}</span>
+                        </template>
+                      </Column>
+                      <Column header="Flags">
+                        <template #body="{ data }">
+                          <InputText
+                            v-if="editingResultId === data.id"
+                            v-model="editResult.flags"
+                            placeholder="Flags"
+                          />
+                          <span v-else>{{ data.flags || "-" }}</span>
+                        </template>
+                      </Column>
+                      <Column header="Ref Range">
+                        <template #body="{ data }">
+                          <InputText
+                            v-if="editingResultId === data.id"
+                            v-model="editResult.reference_range"
+                            placeholder="Reference range"
+                          />
+                          <span v-else>{{ data.reference_range || "-" }}</span>
+                        </template>
+                      </Column>
+                      <Column header="Abnormal">
+                        <template #body="{ data }">
+                          <InputText
+                            v-if="editingResultId === data.id"
+                            v-model="editResult.abnormal_flag"
+                            placeholder="Abnormal flag"
+                          />
+                          <span v-else>{{ data.abnormal_flag || "-" }}</span>
+                        </template>
+                      </Column>
+                      <Column header="Verified By">
+                        <template #body="{ data }">
+                          <span>{{ data.verified_by ?? "-" }}</span>
+                        </template>
+                      </Column>
+                      <Column header="Verified At">
+                        <template #body="{ data }">
+                          <span>{{ formatDateTime(data.verified_at) }}</span>
+                        </template>
+                      </Column>
+                      <Column header="Comment">
+                        <template #body="{ data }">
+                          <InputText
+                            v-if="editingResultId === data.id"
+                            v-model="editResult.comment"
+                            placeholder="Comment"
+                          />
+                          <span v-else>{{ data.comment || "-" }}</span>
+                        </template>
+                      </Column>
+                      <Column header="Completed">
+                        <template #body="{ data }">
+                          <InputText
+                            v-if="editingResultId === data.id"
+                            v-model="editResult.completed_at"
+                            placeholder="Completed at"
+                          />
+                          <span v-else>{{ formatDateTime(data.completed_at) }}</span>
+                        </template>
+                      </Column>
+                      <Column header="Actions">
+                        <template #body="{ data }">
+                          <div v-if="editingResultId === data.id" class="flex gap-2">
+                            <Button
+                              label="Save"
+                              size="small"
+                              severity="success"
+                              @click.stop="saveEditResult(data.id)"
+                            />
+                            <Button
+                              label="Cancel"
+                              size="small"
+                              severity="secondary"
+                              @click.stop="cancelEditResult"
+                            />
+                          </div>
+                          <div v-else class="flex gap-2">
+                            <Button
+                              :label="data.verified ? 'Unverify' : 'Verify'"
+                              size="small"
+                              severity="info"
+                              @click.stop="toggleVerifyResult(data.id)"
+                            />
+                            <Button
+                              label="Edit"
+                              size="small"
+                              severity="secondary"
+                              @click.stop="startEditResult(data)"
+                            />
+                          </div>
+                        </template>
+                      </Column>
+                    </DataTable>
                   </div>
                   <span v-else>No results yet</span>
                 </td>

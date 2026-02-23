@@ -38,7 +38,7 @@ const items = [
 
 <style scoped>
 .app-shell {
-  max-width: 1200px;
+  max-width: 90%;
   margin: 0 auto;
   padding: 1rem;
 }
@@ -50,7 +50,7 @@ const items = [
 .app-menubar {
   margin-bottom: 1rem;
   border-radius: 12px;
-  border: 1px solid #e2e6ef;
+  border: 1px solid #8a909c;
 }
 
 .main-content {
