@@ -1,9 +1,10 @@
 from datetime import datetime
+from enum import Enum
 from typing import List, Optional, Dict
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import ForeignKey, select, text, String, Numeric, Enum as SAEnum
+from sqlalchemy import ForeignKey, select, text, String, Numeric, DateTime, Enum as SAEnum
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship, selectinload
 
@@ -16,11 +17,18 @@ from hans.services import ServiceCatalog
 
 # ---------------- SCHEMAS ----------------
 
+class OrderUrgency(str, Enum):
+    ROUTINE = "ROUTINE"
+    URGENT = "URGENT"
+    STAT = "STAT"
+
+
 class OrderCreate(BaseModel):
     patient_id: int
     test_catalog_ids: List[int] = []
     service_catalog_ids: List[int] = []
     comment: Optional[str] = None
+    urgency: OrderUrgency = OrderUrgency.ROUTINE
 
 
 class ResultRead(BaseModel):
@@ -29,6 +37,11 @@ class ResultRead(BaseModel):
     value: Optional[str] = None
     units: Optional[str] = None
     flags: Optional[str] = None
+    reference_range: Optional[str] = None
+    abnormal_flag: Optional[str] = None
+    verified_by: Optional[int] = None
+    verified_at: Optional[datetime] = None
+    comment: Optional[str] = None
     completed_at: Optional[datetime] = None
     verified: bool
 
@@ -81,6 +94,7 @@ class OrderRead(BaseModel):
     created_by: Optional[int] = None
     created_at: datetime
     archived: bool
+    urgency: OrderUrgency
     comment: Optional[str] = None
     specimens: List[SpecimenRead] = []
     test_runs: List[TestRunRead] = []
@@ -109,6 +123,12 @@ class Order(Base):
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     archived: Mapped[bool] = mapped_column(default=False)
     comment: Mapped[Optional[str]]
+    urgency = mapped_column(
+        SAEnum(OrderUrgency, name="order_urgency"),
+        nullable=False,
+        default=OrderUrgency.ROUTINE,
+        server_default=OrderUrgency.ROUTINE.value,
+    )
 
 
 class Specimen(Base):
@@ -179,6 +199,12 @@ class Result(Base):
     value: Mapped[Optional[str]]
     units: Mapped[Optional[str]]
     flags: Mapped[Optional[str]]
+    # Store reference ranges and verification metadata when available.
+    reference_range = mapped_column(String, nullable=True)
+    abnormal_flag = mapped_column(String, nullable=True)
+    verified_by = mapped_column(ForeignKey("users.id"), nullable=True)
+    verified_at = mapped_column(DateTime, nullable=True)
+    comment = mapped_column(String, nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(default=None, nullable=True)
     verified: Mapped[bool] = mapped_column(default=False)
 
@@ -215,6 +241,7 @@ async def create_order(
         patient_id=data.patient_id,
         created_by=user.id,
         comment=data.comment,
+        urgency=data.urgency,
     )
     db.add(order)
     await db.flush()
