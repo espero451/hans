@@ -57,7 +57,7 @@ async function loadSpecies() {
 async function addPatient() {
   if (!name.value || !speciesId.value || !owner_id.value) return;
   if (!speciesName.value) return;
-  await api.post("/patients/", {
+  const res = await api.post("/patients/", {
     name: name.value,
     species: speciesName.value,
     species_id: speciesId.value,
@@ -73,28 +73,11 @@ async function addPatient() {
   owner_id.value = null;
   birth_date.value = null;
 
-  loadPatients();
-}
+  if (res.data?.id) {
+    await router.push(`/patients/${res.data.id}`);
+    return;
+  }
 
-// Delete patient
-async function deletePatient(id: number) {
-  await api.delete(`/patients/${id}`);
-  loadPatients();
-}
-
-// Edit pattient (should be rewrited)
-async function updatePatient(id: number) {
-  const newName = prompt("New name:");
-  const newSpecies = prompt("New species:");
-  const newOwnerId = Number(prompt("New owner ID:"));
-
-  if (!newName || !newSpecies || !newOwnerId) return;
-
-  await api.put(`/patients/${id}`, {
-    name: newName,
-    species: newSpecies,
-    owner_id: newOwnerId,
-  });
   loadPatients();
 }
 
@@ -163,23 +146,6 @@ function ownerLabel(ownerId: number) {
         <Column header="Owner">
           <template #body="{ data }">
             {{ ownerLabel(data.owner_id) }}
-          </template>
-        </Column>
-        <Column header="Actions">
-          <template #body="{ data }">
-            <Button
-              label="Edit"
-              severity="secondary"
-              size="small"
-              @click.stop="updatePatient(data.id)"
-            />
-            <Button
-              label="Delete"
-              severity="danger"
-              size="small"
-              @click.stop="deletePatient(data.id)"
-              class="ml-2"
-            />
           </template>
         </Column>
       </DataTable>
