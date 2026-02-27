@@ -114,7 +114,7 @@ SECRET_KEY=your-secret-key
 ```
 docker compose up -d --build
 ```
-3. Perform migrations:
+3. Apply migrations:
 ```
 docker compose exec backend alembic upgrade head
 ```
@@ -178,21 +178,10 @@ Dispatcher starts automatically with the backend.
 - Dispatcher status: `GET /settings/dispatcher/status`
 - Dispatcher restart: `POST /settings/dispatcher/restart`
 
-## Database and Migrations
-
-- Migrations live in `backend/migrations`.
-<!-- - Apply migrations with `poetry run alembic upgrade head`. -->
-- Apply migrations with `docker compose exec backend alembic upgrade head`.
-
 ## Logs and Traces
 
 - Audit logs: `live/audit/YYYY-MM-DD.log`
 - Instrument traces: `live/instruments/<interface>/<YYYY-MM-DD>/`
-
-## Default Admin
-
-On first startup, the app seeds an admin user `hans` with password `hans`.
-Change these credentials for production use.
 
 # Roadmap
 
