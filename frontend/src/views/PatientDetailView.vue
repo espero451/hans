@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import api from "../api/http";
 import Button from "primevue/button";
 import Card from "primevue/card";
@@ -14,6 +14,7 @@ import Dropdown from "primevue/dropdown";
 import DatePicker from "primevue/datepicker";
 
 const route = useRoute();
+const router = useRouter();
 const patient = ref<any>(null);
 const owner = ref<any>(null);
 const orders = ref<any[]>([]);
@@ -107,6 +108,10 @@ async function addOrder() {
   selectedTestIds.value = [];
   selectedServiceIds.value = [];
   orderComment.value = "";
+
+  if (res.data?.id) {
+    await router.push(`/orders/${res.data.id}`);
+  }
 }
 
 async function savePatientComment() {
