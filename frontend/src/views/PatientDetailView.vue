@@ -79,9 +79,13 @@ async function load() {
   try {
     const ordersRes = await api.get(`/patients/${id}/orders`);
     orders.value = ordersRes.data;
+    expandedOrders.value = Object.fromEntries(
+      orders.value.map((order) => [order.id, !order.archived])
+    );
   } catch (err) {
     console.error("Failed to load orders:", err);
     orders.value = [];
+    expandedOrders.value = {};
   }
 
   // tests/services loading
@@ -401,26 +405,45 @@ function specimenStatus(order: any, specimenId: string) {
 
             <div class="mb-3">
               <b>Test Runs & Results:</b>
-              <div v-for="run in o.test_runs" :key="run.id">
-                🔬 {{ testLabel(run.test_catalog_id) }} | Barcode:
-                {{ run.specimen_id }} |
-                <Tag :value="run.status" severity="warning" /> |
-                Specimen:
-                <Tag :value="specimenStatus(o, run.specimen_id)" severity="info" />
-                <div v-if="run.results && run.results.length > 0">
-                  <div v-for="r in run.results" :key="r.id">
-                    Value: {{ r.value || "N/A" }} {{ r.units || "-" }} | Flags:
-                    {{ r.flags || "-" }} | Completed:
-                    {{
-                      r.completed_at
-                        ? new Date(r.completed_at).toLocaleString()
-                        : "N/A"
-                    }}
-                    | Verified: {{ r.verified }}
-                  </div>
-                </div>
-                <div v-else>No results yet</div>
-              </div>
+              <table class="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th class="text-left">Test</th>
+                    <th class="text-left">Barcode</th>
+                    <th class="text-left">Run Status</th>
+                    <th class="text-left">Specimen Status</th>
+                    <th class="text-left">Results</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="run in o.test_runs" :key="run.id">
+                    <td>{{ testLabel(run.test_catalog_id) }}</td>
+                    <td>{{ run.specimen_id }}</td>
+                    <td><Tag :value="run.status" severity="warning" /></td>
+                    <td>
+                      <Tag
+                        :value="specimenStatus(o, run.specimen_id)"
+                        severity="info"
+                      />
+                    </td>
+                    <td>
+                      <div v-if="run.results && run.results.length > 0">
+                        <div v-for="r in run.results" :key="r.id">
+                          {{ r.value || "N/A" }} {{ r.units || "-" }} | Flags:
+                          {{ r.flags || "-" }} | Completed:
+                          {{
+                            r.completed_at
+                              ? new Date(r.completed_at).toLocaleString()
+                              : "N/A"
+                          }}
+                          | Verified: {{ r.verified }}
+                        </div>
+                      </div>
+                      <div v-else>No results yet</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
             <div>

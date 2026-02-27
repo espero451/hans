@@ -206,11 +206,11 @@ function cancelEditUrgency() {
           :severity="order.archived ? 'secondary' : 'success'"
           class="ml-2"
         />
-        <Tag
+        <!--<Tag
           :value="order.urgency || 'ROUTINE'"
           :severity="urgencySeverity(order.urgency)"
           class="ml-2"
-        />
+        />-->
         <Button
           :label="order.archived ? 'Unarchive' : 'Archive'"
           size="small"
@@ -219,8 +219,8 @@ function cancelEditUrgency() {
         />
       </template>
       <template #content>
-        <div>Created: {{ new Date(order.created_at).toLocaleString() }}</div>
-        <div class="flex align-items-center gap-2">
+        <p>Created: {{ new Date(order.created_at).toLocaleString() }}</p>
+        <p><div class="flex align-items-center gap-2">
           <span>Urgency:</span>
           <Tag
             v-if="!editingUrgency"
@@ -256,7 +256,7 @@ function cancelEditUrgency() {
             severity="secondary"
             @click="cancelEditUrgency"
           />
-        </div>
+        </div></p>
         <p v-if="patient.name">
           Patient:
           <a :href="`/patients/${order.patient_id}`">{{ patient.name }}</a> ({{
