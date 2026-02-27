@@ -42,24 +42,26 @@ def audit_log(user_id: int, action: str) -> None:
 
 # ---------------- SEED ADMIN ----------------
 
-@app.on_event("startup")
-async def ensure_admin_user() -> None:
-    # Import auth models lazily to avoid circular imports.
-    from hans.core.auth import User, hash_password
+# Moved to tools/seed_admin.py
 
-    # Check admin user
-    async with SessionLocal() as db:
-        result = await db.execute(select(User).where(User.username == "hans"))
-        user = result.scalar_one_or_none()
-        if user:
-            return
-        # Create admin
-        hashed = hash_password("hans")
-        hans = User(
-            username="hans",
-            email="hans@example.com",
-            role="admin",
-            hashed_password=hashed,
-        )
-        db.add(hans)
-        await db.commit()
+# @app.on_event("startup")
+# async def ensure_admin_user() -> None:
+#     # Import auth models lazily to avoid circular imports.
+#     from hans.core.auth import User, hash_password
+
+#     # Check admin user
+#     async with SessionLocal() as db:
+#         result = await db.execute(select(User).where(User.username == "hans"))
+#         user = result.scalar_one_or_none()
+#         if user:
+#             return
+#         # Create admin
+#         hashed = hash_password("hans")
+#         hans = User(
+#             username="hans",
+#             email="hans@example.com",
+#             role="admin",
+#             hashed_password=hashed,
+#         )
+#         db.add(hans)
+#         await db.commit()

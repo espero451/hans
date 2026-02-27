@@ -39,6 +39,7 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 
 ## Main Technology Stack
 
+### Backend
 - Python 3.13+
 - FastAPI
 - PostgreSQL 16+
@@ -49,10 +50,16 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 - python-jose + passlib (JWT authentication and password hashing)
 - Uvicorn (ASGI server)
 - Python-dotenv (environment variables)
-- Vue 3 + Vite (frontend)
+
+### Frontend
+- Vue 3 + Vite
 - PrimeVue (UI components)
-- Poetry 2.x (for backend dev)
-- Node.js 20+ (for frontend dev)
+- Node.js 20+
+
+### Infrastructure & DevOps
+- Docker
+- Docker Compose
+- Poetry 2.x (backend dependency management)
 
 ## Database Structure (.svg)
 
@@ -61,7 +68,7 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 </p>
 
 ## Quick Start 
-
+<!--
 ## Local Dev (without Docker)
 
 1. Clone the repository.
@@ -95,17 +102,29 @@ npm run dev
 ## Local Dev with Docker *recommended*
 
 ### How to build and run
-
+-->
 1. Create `.env` in the project root (used by Docker Compose):
 ```
 POSTGRES_USER=hans
 POSTGRES_PASSWORD=hans
 POSTGRES_DB=hans
-SECRET_KEY=change-me
+SECRET_KEY=your-secret-key
 ```
 2. Build and start containers:
 ```
-docker compose up --build
+docker compose up -d --build
+```
+3. Perform migrations:
+```
+docker compose exec backend alembic upgrade head
+```
+4. Seed admin user:
+```
+docker compose exec backend python3 -m hans.tools.seed_admin
+```
+5. Login with username: `hans`, password: `hans`:
+```
+http://localhost:8080/login
 ```
 
 ### URLs
@@ -119,10 +138,10 @@ docker compose up --build
 - Docker uses `network_mode: host` for the backend to expose dynamic instrument ports.
   This works only on Linux. For Docker Desktop (macOS/Windows), a different setup
   is required (no host networking).
-- `/.env` is used by Docker Compose for container environment variables.
-- `backend/.env` is used for local backend runs (when you start FastAPI directly).
+<!-- - `/.env` is used by Docker Compose for container environment variables. -->
+<!-- - `backend/.env` is used for local backend runs (when you start FastAPI directly).
   For local runs, start the backend from the `backend/` directory to ensure the
-  correct `.env` is loaded.
+  correct `.env` is loaded. -->
 
 ### Ports
 
@@ -144,7 +163,6 @@ It sends an ASTM frame over TCP to a target host and prints response frames.
 
 ```
 astmkit inst input.astm --port 20100
-astmkit inst input.astm --host 127.0.0.1 --port 20100
 ```
 
 Make sure the emulator port matches one of the configured interface ports (`port` in the YAML configs at `backend/src/hans/interfaces/configs`).
@@ -163,22 +181,25 @@ Dispatcher starts automatically with the backend.
 ## Database and Migrations
 
 - Migrations live in `backend/migrations`.
-- Apply migrations with `poetry run alembic upgrade head`.
+<!-- - Apply migrations with `poetry run alembic upgrade head`. -->
+- Apply migrations with `docker compose exec backend alembic upgrade head`.
 
 ## Logs and Traces
 
 - Audit logs: `live/audit/YYYY-MM-DD.log`
-- Instrument traces: `live/instruments/<interface>/<date>/`
+- Instrument traces: `live/instruments/<interface>/<YYYY-MM-DD>/`
 
 ## Default Admin
 
 On first startup, the app seeds an admin user `hans` with password `hans`.
 Change these credentials for production use.
 
-# TODO & Current Limitations 
+# Roadmap
 
-- No reporting and export features
-- No tests (unit/integration)
+- Order-level comments for services
+- PDF report generation
+- Export (CSV / HL7)
+- Automated testing
 
 
 (*In memory of Hans, a cat who was lost and never came back.*)

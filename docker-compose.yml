@@ -29,6 +29,7 @@ services:
     network_mode: host
     volumes:
       - ./live:/app/live
+      - ./backend:/app/backend
     restart: unless-stopped
 
   frontend:
