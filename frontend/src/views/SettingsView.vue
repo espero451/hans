@@ -48,23 +48,47 @@ async function restartDispatcher() {
 
 async function openDispatcherTrace() {
   const traceWindow = window.open("", "_blank");
-  if (!traceWindow) {
-    return;
-  }
-  traceWindow.document.title = "Dispatcher Trace";
-  traceWindow.document.body.style.whiteSpace = "pre-wrap";
-  traceWindow.document.body.style.fontFamily = "monospace";
-  traceWindow.document.body.textContent = "Loading dispatcher trace...";
+  if (!traceWindow) return;
+
+  const doc = traceWindow.document;
+  doc.title = "Dispatcher Trace";
+
+  // Стили
+  const style = doc.createElement("style");
+  style.textContent = `
+    body {
+      background: #000;
+      margin: 0;
+      padding: 16px;
+    }
+    pre {
+      color: #e2e8f0;
+      font-family: monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+  `;
+  doc.head.appendChild(style);
+
+  const pre = doc.createElement("pre");
+  pre.textContent = "Loading dispatcher trace...";
+  doc.body.appendChild(pre);
+
   try {
     const res = await api.get("/settings/dispatcher/trace", {
       responseType: "text",
     });
+
     const traceText =
-      typeof res.data === "string" ? res.data : JSON.stringify(res.data, null, 2);
-    traceWindow.document.body.textContent =
-      traceText || "No dispatcher trace available.";
-  } catch (error) {
-    traceWindow.document.body.textContent = "Unable to load dispatcher trace.";
+      typeof res.data === "string"
+        ? res.data
+        : JSON.stringify(res.data, null, 2);
+
+    pre.textContent = traceText || "No dispatcher trace available.";
+  } catch {
+    pre.textContent = "Unable to load dispatcher trace.";
   }
 }
 

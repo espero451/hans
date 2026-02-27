@@ -16,7 +16,7 @@ logger = logging.getLogger("hans.dispatcher.service")
 def _format_timestamp(now: datetime) -> str:
     # Format timestamps with millisecond precision.
     ms = now.microsecond // 1000
-    return now.strftime("%Y-%m-%dT%H:%M:%S") + f".{ms:03d}Z"
+    return now.strftime("%H:%M:%S") + f".{ms:03d}"
 
 
 def _utc_now() -> datetime:
@@ -117,7 +117,7 @@ class DispatcherService:
     def _write_trace(self, event: str, detail: str | None = None) -> None:
         # Append a dispatcher lifecycle event to the trace file.
         now = _utc_now()
-        line_parts = [f"ts={_format_timestamp(now)}", f"event={event}"]
+        line_parts = [f"{_format_timestamp(now)}", f"event={event}"]
         if detail:
             line_parts.append(detail)
         line = " ".join(line_parts) + "\n"

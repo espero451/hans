@@ -114,7 +114,7 @@ class Dispatcher:
         barcodes_str = ",".join(barcodes)
         test_runs = ",".join(str(item) for item in test_run_ids)
         parts = [
-            f"ts={ts}",
+            f"{ts}",
             f"interface={interface_code}",
             f"dir={direction}",
             f"type={message_type}",
@@ -126,6 +126,16 @@ class Dispatcher:
         if reason:
             parts.append(f"reason={reason}")
         line = " ".join(parts) + "\n"
+        path = self._trace_path()
+        async with self._lock:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("a", encoding="utf-8", newline="") as handle:
+                handle.write(line)
+
+    async def log_dispatcher_info(self, message: str) -> None:
+        # Record a dispatcher-level informational line.
+        ts = _format_timestamp()
+        line = f"{ts} {message}\n"
         path = self._trace_path()
         async with self._lock:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -179,7 +189,7 @@ class Dispatcher:
 def _format_timestamp() -> str:
     now = datetime.utcnow()
     ms = now.microsecond // 1000
-    return now.strftime("%Y-%m-%dT%H:%M:%S") + f".{ms:03d}Z"
+    return now.strftime("%H:%M:%S") + f".{ms:03d}"
 
 
 def _format_interface_line(level: str, message: str) -> str:
@@ -468,6 +478,10 @@ async def _run_with_configs(config_paths: list[Path]) -> None:
                 port=config.server.port,
                 handler=_make_connection_handler(state, dispatcher),
             )
+        )
+        await dispatcher.log_dispatcher_info(
+            "config.scanned interface="
+            f"{config.interface_code} handler={handler_name} path={config_path}"
         )
 
     await run_listeners(listeners)
