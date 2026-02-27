@@ -1,20 +1,22 @@
 <template>
   <div class="app-shell">
-    <Menubar :model="items" class="app-menubar">
-      <template #start>
-        <img src="/assets/hans.png" width="48" height="48" class="brand-logo" alt="Hans LIS" />
-      </template>
-      <template #end>
-        <Button
-          icon="pi pi-power-off"
-          severity="secondary"
-          text
-          @click="router.push('/login')"
-        />
-      </template>
-    </Menubar>
+    <div class="content-shell">
+      <Menubar :model="items" class="app-menubar">
+        <template #start>
+          <img src="/assets/hans.png" width="48" height="48" class="brand-logo" alt="Hans LIS" />
+        </template>
+        <template #end>
+          <Button
+            icon="pi pi-power-off"
+            severity="secondary"
+            text
+            @click="router.push('/login')"
+          />
+        </template>
+      </Menubar>
+    </div>
 
-    <main class="main-content">
+    <main class="main-content content-shell">
       <router-view />
     </main>
   </div>
@@ -38,8 +40,7 @@ const items = [
 
 <style scoped>
 .app-shell {
-  max-width: 90%;
-  margin: 0 auto;
+  width: 100%;
   padding: 1rem;
 }
 
@@ -48,9 +49,16 @@ const items = [
 }
 
 .app-menubar {
-  margin-bottom: 1rem;
+  margin-bottom: 0rem;
   border-radius: 12px;
-  border: 1px solid #8a909c;
+  border: 1px solid #4d4e50;
+  padding: 1rem;
+}
+
+.content-shell {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 .main-content {

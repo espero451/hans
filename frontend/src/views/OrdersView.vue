@@ -59,6 +59,12 @@ function urgencyRank(urgency?: string) {
   return 2;
 }
 
+function urgencySeverity(urgency?: string) {
+  if (urgency === "STAT") return "danger";
+  if (urgency === "URGENT") return "warning";
+  return "secondary";
+}
+
 function dateKey(input: string | Date | null) {
   if (!input) return "";
   const date = typeof input === "string" ? new Date(input) : input;
@@ -212,6 +218,14 @@ onMounted(async () => {
             <Tag
               :value="data.archived ? 'Archived' : 'Active'"
               :severity="data.archived ? 'secondary' : 'success'"
+            />
+          </template>
+        </Column>
+        <Column header="Urgency">
+          <template #body="{ data }">
+            <Tag
+              :value="data.urgency || 'ROUTINE'"
+              :severity="urgencySeverity(data.urgency)"
             />
           </template>
         </Column>

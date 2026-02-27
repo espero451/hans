@@ -31,6 +31,12 @@ class OrderCreate(BaseModel):
     urgency: OrderUrgency = OrderUrgency.ROUTINE
 
 
+class OrderUpdate(BaseModel):
+    # Payload for order edits.
+    comment: Optional[str] = None
+    urgency: Optional[OrderUrgency] = None
+
+
 class ResultRead(BaseModel):
     id: int
     test_run_id: int
@@ -412,6 +418,26 @@ async def archive_order(
 
     audit_log(user.id, f"Order {order_id} archived")
     return OrderArchivedStatusRead.model_validate(order)
+
+
+@router.patch("/orders/{order_id}", response_model=OrderRead)
+async def update_order(
+    order_id: int,
+    data: OrderUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> OrderRead:
+    # Update comment or urgency values.
+    result = await db.execute(select(Order).where(Order.id == order_id))
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, "Order not found")
+    for key, value in data.dict(exclude_unset=True).items():
+        setattr(order, key, value)
+    await db.commit()
+    await db.refresh(order)
+    audit_log(user.id, f"Updated order {order_id}")
+    return await _load_order(order_id, db)
 
 
 @router.post("/test-runs/{test_run_id}/results", response_model=ResultRead)

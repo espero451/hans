@@ -12,18 +12,19 @@ import DatePicker from "primevue/datepicker";
 
 const patients = ref<any[]>([]);
 const name = ref("");
-const species = ref("");
+const speciesId = ref<number | null>(null);
+const sex = ref("unknown");
 const owner_id = ref<number | null>(null);
 const owners = ref<any[]>([]);
+const speciesOptions = ref<any[]>([]);
 const birth_date = ref<Date | null>(null);
+const sexOptions = [
+  { label: "Male", value: "male" },
+  { label: "Female", value: "female" },
+  { label: "Unknown", value: "unknown" },
+];
 
 const router = useRouter();
-
-const speciesOptions = [
-  { label: "Cat", value: "Cat" },
-  { label: "Dog", value: "Dog" },
-  { label: "Dinosaur", value: "Dinosaur" },
-];
 
 const ownerOptions = computed(() =>
   owners.value.map((o) => ({
@@ -31,6 +32,10 @@ const ownerOptions = computed(() =>
     value: o.id,
   }))
 );
+const speciesName = computed(() => {
+  const selected = speciesOptions.value.find((s) => s.id === speciesId.value);
+  return selected ? selected.name : "";
+});
 
 // Loading patients
 async function loadPatients() {
@@ -43,19 +48,28 @@ async function loadOwners() {
   owners.value = await getOwners();
 }
 
+async function loadSpecies() {
+  const res = await api.get("/species/");
+  speciesOptions.value = res.data;
+}
+
 // Add patient
 async function addPatient() {
-  if (!name.value || !species.value || !owner_id.value) return;
+  if (!name.value || !speciesId.value || !owner_id.value) return;
+  if (!speciesName.value) return;
   await api.post("/patients/", {
     name: name.value,
-    species: species.value,
+    species: speciesName.value,
+    species_id: speciesId.value,
     owner_id: owner_id.value,
     birth_date: birth_date.value
       ? birth_date.value.toISOString().split("T")[0]
       : null,
+    sex: sex.value,
   });
   name.value = "";
-  species.value = "";
+  speciesId.value = null;
+  sex.value = "unknown";
   owner_id.value = null;
   birth_date.value = null;
 
@@ -87,6 +101,7 @@ async function updatePatient(id: number) {
 onMounted(() => {
   loadPatients();
   loadOwners();
+  loadSpecies();
 });
 
 function ownerLabel(ownerId: number) {
@@ -103,11 +118,18 @@ function ownerLabel(ownerId: number) {
       <div class="flex flex-wrap gap-2 align-items-center">
         <InputText v-model="name" placeholder="Name" />
         <Dropdown
-          v-model="species"
+          v-model="speciesId"
           :options="speciesOptions"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Select species"
+        />
+        <Dropdown
+          v-model="sex"
+          :options="sexOptions"
           optionLabel="label"
           optionValue="value"
-          placeholder="Select species"
+          placeholder="Select sex"
         />
         <DatePicker v-model="birth_date" placeholder="Birth Date" showIcon />
         <Dropdown

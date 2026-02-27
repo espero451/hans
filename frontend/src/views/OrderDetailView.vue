@@ -9,6 +9,8 @@ import Column from "primevue/column";
 import Tag from "primevue/tag";
 import Divider from "primevue/divider";
 import InputText from "primevue/inputtext";
+import Textarea from "primevue/textarea";
+import Dropdown from "primevue/dropdown";
 
 const route = useRoute();
 const patient = ref<any>(null);
@@ -16,8 +18,18 @@ const owner = ref<any>(null);
 const order = ref<any>(null);
 const tests = ref<any[]>([]);
 const services = ref<any[]>([]);
+const orderComment = ref("");
+const orderUrgency = ref("ROUTINE");
+const savingOrderComment = ref(false);
+const savingOrderUrgency = ref(false);
+const editingUrgency = ref(false);
 const editingResultId = ref<number | null>(null);
 const editResult = ref<any>({});
+const urgencyOptions = [
+  { label: "Routine", value: "ROUTINE" },
+  { label: "Urgent", value: "URGENT" },
+  { label: "STAT", value: "STAT" },
+];
 
 async function load() {
   const id = route.params.id;
@@ -25,6 +37,8 @@ async function load() {
   // order loading
   const orderRes = await api.get(`/orders/${id}`);
   order.value = orderRes.data;
+  orderComment.value = order.value?.comment || "";
+  orderUrgency.value = order.value?.urgency || "ROUTINE";
 
   // patient loading
   if (order.value.patient_id) {
@@ -141,6 +155,45 @@ async function archiveOrder(id: number) {
   const res = await api.patch(`/orders/${id}/archive`);
   order.value.archived = res.data.archived;
 }
+
+async function saveOrderComment() {
+  if (!order.value) return;
+  savingOrderComment.value = true;
+  try {
+    const res = await api.patch(`/orders/${order.value.id}`, {
+      comment: orderComment.value || null,
+    });
+    order.value = res.data;
+    orderComment.value = order.value?.comment || "";
+  } finally {
+    savingOrderComment.value = false;
+  }
+}
+
+async function saveOrderUrgency() {
+  if (!order.value) return;
+  if (!orderUrgency.value) return;
+  savingOrderUrgency.value = true;
+  try {
+    const res = await api.patch(`/orders/${order.value.id}`, {
+      urgency: orderUrgency.value,
+    });
+    order.value = res.data;
+    orderUrgency.value = order.value?.urgency || "ROUTINE";
+    editingUrgency.value = false;
+  } finally {
+    savingOrderUrgency.value = false;
+  }
+}
+
+function startEditUrgency() {
+  editingUrgency.value = true;
+}
+
+function cancelEditUrgency() {
+  editingUrgency.value = false;
+  orderUrgency.value = order.value?.urgency || "ROUTINE";
+}
 </script>
 
 <template>
@@ -170,8 +223,38 @@ async function archiveOrder(id: number) {
         <div class="flex align-items-center gap-2">
           <span>Urgency:</span>
           <Tag
+            v-if="!editingUrgency"
             :value="order.urgency || 'ROUTINE'"
             :severity="urgencySeverity(order.urgency)"
+          />
+          <Dropdown
+            v-else
+            v-model="orderUrgency"
+            :options="urgencyOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Select urgency"
+          />
+          <Button
+            v-if="!editingUrgency"
+            label="Edit"
+            size="small"
+            severity="secondary"
+            @click="startEditUrgency"
+          />
+          <Button
+            v-else
+            label="Save"
+            size="small"
+            :loading="savingOrderUrgency"
+            @click="saveOrderUrgency"
+          />
+          <Button
+            v-if="editingUrgency"
+            label="Cancel"
+            size="small"
+            severity="secondary"
+            @click="cancelEditUrgency"
           />
         </div>
         <p v-if="patient.name">
@@ -190,7 +273,21 @@ async function archiveOrder(id: number) {
       </template>
     </Card>
 
-    <Card v-if="order.id">
+    <Card>
+      <template #content>
+        <label class="block mb-2">Comment:</label>
+        <Textarea v-model="orderComment" rows="3" autoResize class="w-full" />
+        <div class="mt-2">
+          <Button
+            label="Save"
+            :loading="savingOrderComment"
+            @click="saveOrderComment"
+          />
+        </div>
+      </template>
+    </Card>
+
+    <Card v-if="order?.test_runs?.length">
       <template #title>Specimens</template>
       <template #content>
         <DataTable :value="order.specimens" dataKey="specimen_id">
@@ -216,7 +313,7 @@ async function archiveOrder(id: number) {
 
     <Divider />
 
-    <Card>
+    <Card v-if="order?.test_runs?.length">
       <template #title>Test Runs & Results</template>
       <template #content>
         <table class="w-full">
@@ -383,8 +480,8 @@ async function archiveOrder(id: number) {
             </template>
           </Column>
         </DataTable>
-        <p style="margin-top: 0.75rem">Comment: {{ order.comment || "N/A" }}</p>
       </template>
     </Card>
+
   </div>
 </template>

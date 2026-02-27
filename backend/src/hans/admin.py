@@ -10,7 +10,7 @@ from hans.core.settings import settings
 from hans.instruments import Instrument, Workstation
 from hans.orders import Order, Result, ServiceRun, Specimen, TestRun
 from hans.owners import Owner
-from hans.patients import Patient
+from hans.patients import Patient, Species
 from hans.services import ServiceCatalog
 from hans.specimens import SpecimenType
 from hans.tests import TestCatalog
@@ -117,6 +117,18 @@ class PatientAdmin(ModelView, model=Patient):
             f"{getattr(model.owner, 'last_name', '')}"
         ).strip(),
     }
+
+
+class SpeciesAdmin(ModelView, model=Species):
+    name = "Specie"
+    name_plural = "Species"
+    column_list = [
+        Species.id,
+        Species.code,
+        Species.name,
+        Species.latin_name,
+        Species.active,
+    ]
 
 
 class OrderAdmin(ModelView, model=Order):
@@ -294,6 +306,7 @@ def build_admin(app: FastAPI) -> Admin:
     admin.add_view(UserAdmin)
     admin.add_view(OwnerAdmin)
     admin.add_view(PatientAdmin)
+    admin.add_view(SpeciesAdmin)
 
     admin.add_view(OrderAdmin)
     admin.add_view(SpecimenAdmin)

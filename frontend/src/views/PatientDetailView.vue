@@ -7,8 +7,11 @@ import Card from "primevue/card";
 import Divider from "primevue/divider";
 import MultiSelect from "primevue/multiselect";
 import InputText from "primevue/inputtext";
+import InputNumber from "primevue/inputnumber";
 import Textarea from "primevue/textarea";
 import Tag from "primevue/tag";
+import Dropdown from "primevue/dropdown";
+import DatePicker from "primevue/datepicker";
 
 const route = useRoute();
 const patient = ref<any>(null);
@@ -21,6 +24,16 @@ const selectedServiceIds = ref<number[]>([]);
 const orderComment = ref("");
 const patientComment = ref("");
 const savingComment = ref(false);
+const patientSex = ref("");
+const patientWeight = ref<number | null>(null);
+const patientBreed = ref("");
+const patientMicrochipNumber = ref("");
+const patientBirthDate = ref<Date | null>(null);
+const savingSex = ref(false);
+const savingWeight = ref(false);
+const savingBreed = ref(false);
+const savingMicrochipNumber = ref(false);
+const savingBirthDate = ref(false);
 
 const expandedOrders = ref<Record<number, boolean>>({});
 
@@ -30,6 +43,11 @@ const testOptions = computed(() =>
 const serviceOptions = computed(() =>
   services.value.map((s) => ({ label: s.name, value: s.id }))
 );
+const sexOptions = [
+  { label: "Male", value: "male" },
+  { label: "Female", value: "female" },
+  { label: "Unknown", value: "unknown" },
+];
 
 async function load() {
   const id = route.params.id;
@@ -38,6 +56,13 @@ async function load() {
   const patientRes = await api.get(`/patients/${id}`);
   patient.value = patientRes.data;
   patientComment.value = patient.value?.comment || "";
+  patientSex.value = patient.value?.sex || "";
+  patientWeight.value = patient.value?.weight ?? null;
+  patientBreed.value = patient.value?.breed || "";
+  patientMicrochipNumber.value = patient.value?.microchip_number || "";
+  patientBirthDate.value = patient.value?.birth_date
+    ? new Date(patient.value.birth_date)
+    : null;
 
   // owner loading
   if (patient.value.owner_id) {
@@ -98,6 +123,82 @@ async function savePatientComment() {
   }
 }
 
+async function savePatientSex() {
+  if (!patient.value) return;
+  if (!patientSex.value) return;
+  savingSex.value = true;
+  try {
+    const res = await api.patch(`/patients/${patient.value.id}`, {
+      sex: patientSex.value,
+    });
+    patient.value = res.data;
+    patientSex.value = patient.value?.sex || "";
+  } finally {
+    savingSex.value = false;
+  }
+}
+
+async function savePatientWeight() {
+  if (!patient.value) return;
+  savingWeight.value = true;
+  try {
+    const res = await api.patch(`/patients/${patient.value.id}`, {
+      weight: patientWeight.value ?? null,
+    });
+    patient.value = res.data;
+    patientWeight.value = patient.value?.weight ?? null;
+  } finally {
+    savingWeight.value = false;
+  }
+}
+
+async function savePatientBreed() {
+  if (!patient.value) return;
+  savingBreed.value = true;
+  try {
+    const res = await api.patch(`/patients/${patient.value.id}`, {
+      breed: patientBreed.value || null,
+    });
+    patient.value = res.data;
+    patientBreed.value = patient.value?.breed || "";
+  } finally {
+    savingBreed.value = false;
+  }
+}
+
+async function savePatientBirthDate() {
+  if (!patient.value) return;
+  savingBirthDate.value = true;
+  try {
+    const birthDate = patientBirthDate.value
+      ? patientBirthDate.value.toISOString().split("T")[0]
+      : null;
+    const res = await api.patch(`/patients/${patient.value.id}`, {
+      birth_date: birthDate,
+    });
+    patient.value = res.data;
+    patientBirthDate.value = patient.value?.birth_date
+      ? new Date(patient.value.birth_date)
+      : null;
+  } finally {
+    savingBirthDate.value = false;
+  }
+}
+
+async function savePatientMicrochipNumber() {
+  if (!patient.value) return;
+  savingMicrochipNumber.value = true;
+  try {
+    const res = await api.patch(`/patients/${patient.value.id}`, {
+      microchip_number: patientMicrochipNumber.value || null,
+    });
+    patient.value = res.data;
+    patientMicrochipNumber.value = patient.value?.microchip_number || "";
+  } finally {
+    savingMicrochipNumber.value = false;
+  }
+}
+
 onMounted(load);
 
 function toggleOrder(orderId: number) {
@@ -129,13 +230,90 @@ function specimenStatus(order: any, specimenId: string) {
         {{ patient.name }} <Tag :value="patient.species" />
       </template>
       <template #content>
-        <p v-if="patient.breed">Breed: {{ patient.breed }}</p>
-        <p v-if="patient.birth_date">Birth Date: {{ patient.birth_date }}</p>
         <p v-if="owner">
           Owner: {{ owner.first_name }} {{ owner.last_name }} ({{ owner.email }},
           {{ owner.phone }})
         </p>
         <p v-else>Loading owner...</p>
+        <!-- <p v-if="patient.breed">Breed: {{ patient.breed }}</p> -->
+        <!-- <p v-if="patient.birth_date">Birth Date: {{ patient.birth_date }}</p> -->
+        <div class="mt-3 flex flex-column gap-2">
+
+          <div class="flex flex-wrap align-items-center gap-2">
+            <label class="w-8rem">Breed</label>
+            <InputText v-model="patientBreed" placeholder="Breed" />
+            <Button
+              label="Save"
+              size="small"
+              :loading="savingBreed"
+              @click="savePatientBreed"
+            />
+          </div>
+          
+          <div class="flex flex-wrap align-items-center gap-2">
+            <label class="w-8rem">Birth Date</label>
+            <DatePicker
+              v-model="patientBirthDate"
+              dateFormat="yy-mm-dd"
+              placeholder="Birth date"
+              showIcon
+            />
+            <Button
+              label="Save"
+              size="small"
+              :loading="savingBirthDate"
+              @click="savePatientBirthDate"
+            />
+          </div>
+          
+          <div class="flex flex-wrap align-items-center gap-2">
+            <label class="w-8rem">Sex</label>
+            <Dropdown
+              v-model="patientSex"
+              :options="sexOptions"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Select sex"
+            />
+            <Button
+              label="Save"
+              size="small"
+              :loading="savingSex"
+              @click="savePatientSex"
+            />
+          </div>
+          
+          <div class="flex flex-wrap align-items-center gap-2">
+            <label class="w-8rem">Weight (kg)</label>
+            <InputNumber
+              v-model="patientWeight"
+              :minFractionDigits="0"
+              :maxFractionDigits="2"
+              placeholder="Weight"
+            />
+            <Button
+              label="Save"
+              size="small"
+              :loading="savingWeight"
+              @click="savePatientWeight"
+            />
+          </div>
+
+          <div class="flex flex-wrap align-items-center gap-2">
+            <label class="w-8rem">Microchip</label>
+            <InputText
+              v-model="patientMicrochipNumber"
+              placeholder="Microchip number"
+            />
+            <Button
+              label="Save"
+              size="small"
+              :loading="savingMicrochipNumber"
+              @click="savePatientMicrochipNumber"
+            />
+          </div>
+        </div>
+        
         <div class="mt-3">
           <label class="block mb-2">Comment:</label>
           <Textarea v-model="patientComment" rows="3" autoResize class="w-full" />
