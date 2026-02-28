@@ -20,21 +20,20 @@ const owner = ref<any>(null);
 const orders = ref<any[]>([]);
 const tests = ref<any[]>([]);
 const services = ref<any[]>([]);
+const speciesOptions = ref<any[]>([]);
+const speciesId = ref<number | null>(null);
 const selectedTestIds = ref<number[]>([]);
 const selectedServiceIds = ref<number[]>([]);
 const orderComment = ref("");
 const patientComment = ref("");
-const savingComment = ref(false);
+const savingAll = ref(false);
+const isEditing = ref(false);
+const patientName = ref("");
 const patientSex = ref("");
 const patientWeight = ref<number | null>(null);
 const patientBreed = ref("");
 const patientMicrochipNumber = ref("");
 const patientBirthDate = ref<Date | null>(null);
-const savingSex = ref(false);
-const savingWeight = ref(false);
-const savingBreed = ref(false);
-const savingMicrochipNumber = ref(false);
-const savingBirthDate = ref(false);
 const patientPhotoUrl = ref<string | null>(null);
 const uploadingPhoto = ref(false);
 const photoInput = ref<HTMLInputElement | null>(null);
@@ -47,6 +46,10 @@ const testOptions = computed(() =>
 const serviceOptions = computed(() =>
   services.value.map((s) => ({ label: s.name, value: s.id }))
 );
+const speciesName = computed(() => {
+  const selected = speciesOptions.value.find((s) => s.id === speciesId.value);
+  return selected ? selected.name : "";
+});
 const sexOptions = [
   { label: "Male", value: "male" },
   { label: "Female", value: "female" },
@@ -64,6 +67,7 @@ async function load() {
   patientWeight.value = patient.value?.weight ?? null;
   patientBreed.value = patient.value?.breed || "";
   patientMicrochipNumber.value = patient.value?.microchip_number || "";
+  patientName.value = patient.value?.name || "";
   patientBirthDate.value = patient.value?.birth_date
     ? new Date(patient.value.birth_date)
     : null;
@@ -98,6 +102,7 @@ async function load() {
   const servicesRes = await api.get(`/services/`);
   services.value = servicesRes.data;
 
+  await loadSpecies();
   await loadPatientPhoto();
 }
 
@@ -123,93 +128,53 @@ async function addOrder() {
   }
 }
 
-async function savePatientComment() {
+function startEdit() {
   if (!patient.value) return;
-  savingComment.value = true;
-  try {
-    const res = await api.patch(`/patients/${patient.value.id}`, {
-      comment: patientComment.value || null,
-    });
-    patient.value = res.data;
-    patientComment.value = patient.value?.comment || "";
-  } finally {
-    savingComment.value = false;
-  }
+  patientComment.value = patient.value?.comment || "";
+  patientSex.value = patient.value?.sex || "";
+  patientWeight.value = patient.value?.weight ?? null;
+  patientBreed.value = patient.value?.breed || "";
+  patientMicrochipNumber.value = patient.value?.microchip_number || "";
+  patientName.value = patient.value?.name || "";
+  patientBirthDate.value = patient.value?.birth_date
+    ? new Date(patient.value.birth_date)
+    : null;
+  syncSpeciesSelection();
+  isEditing.value = true;
 }
 
-async function savePatientSex() {
+async function savePatientAll() {
   if (!patient.value) return;
-  if (!patientSex.value) return;
-  savingSex.value = true;
-  try {
-    const res = await api.patch(`/patients/${patient.value.id}`, {
-      sex: patientSex.value,
-    });
-    patient.value = res.data;
-    patientSex.value = patient.value?.sex || "";
-  } finally {
-    savingSex.value = false;
-  }
-}
-
-async function savePatientWeight() {
-  if (!patient.value) return;
-  savingWeight.value = true;
-  try {
-    const res = await api.patch(`/patients/${patient.value.id}`, {
-      weight: patientWeight.value ?? null,
-    });
-    patient.value = res.data;
-    patientWeight.value = patient.value?.weight ?? null;
-  } finally {
-    savingWeight.value = false;
-  }
-}
-
-async function savePatientBreed() {
-  if (!patient.value) return;
-  savingBreed.value = true;
-  try {
-    const res = await api.patch(`/patients/${patient.value.id}`, {
-      breed: patientBreed.value || null,
-    });
-    patient.value = res.data;
-    patientBreed.value = patient.value?.breed || "";
-  } finally {
-    savingBreed.value = false;
-  }
-}
-
-async function savePatientBirthDate() {
-  if (!patient.value) return;
-  savingBirthDate.value = true;
+  savingAll.value = true;
   try {
     const birthDate = patientBirthDate.value
       ? patientBirthDate.value.toISOString().split("T")[0]
       : null;
     const res = await api.patch(`/patients/${patient.value.id}`, {
+      name: patientName.value || null,
+      species: speciesName.value || null,
+      species_id: speciesId.value,
+      comment: patientComment.value || null,
+      sex: patientSex.value || null,
+      weight: patientWeight.value ?? null,
+      breed: patientBreed.value || null,
+      microchip_number: patientMicrochipNumber.value || null,
       birth_date: birthDate,
     });
     patient.value = res.data;
+    patientComment.value = patient.value?.comment || "";
+    patientSex.value = patient.value?.sex || "";
+    patientWeight.value = patient.value?.weight ?? null;
+    patientBreed.value = patient.value?.breed || "";
+    patientMicrochipNumber.value = patient.value?.microchip_number || "";
+    patientName.value = patient.value?.name || "";
     patientBirthDate.value = patient.value?.birth_date
       ? new Date(patient.value.birth_date)
       : null;
+    syncSpeciesSelection();
+    isEditing.value = false;
   } finally {
-    savingBirthDate.value = false;
-  }
-}
-
-async function savePatientMicrochipNumber() {
-  if (!patient.value) return;
-  savingMicrochipNumber.value = true;
-  try {
-    const res = await api.patch(`/patients/${patient.value.id}`, {
-      microchip_number: patientMicrochipNumber.value || null,
-    });
-    patient.value = res.data;
-    patientMicrochipNumber.value = patient.value?.microchip_number || "";
-  } finally {
-    savingMicrochipNumber.value = false;
+    savingAll.value = false;
   }
 }
 
@@ -229,11 +194,18 @@ function serviceLabel(serviceCatalogId: number) {
   return service ? service.name : serviceCatalogId;
 }
 
-function specimenStatus(order: any, specimenId: string) {
-  const specimen = order?.specimens?.find(
-    (s: any) => s.specimen_id === specimenId
+async function loadSpecies() {
+  const res = await api.get("/species/");
+  speciesOptions.value = res.data;
+  syncSpeciesSelection();
+}
+
+function syncSpeciesSelection() {
+  if (!patient.value) return;
+  const selected = speciesOptions.value.find(
+    (s) => s.name === patient.value?.species
   );
-  return specimen?.status || "N/A";
+  speciesId.value = selected ? selected.id : null;
 }
 
 async function loadPatientPhoto() {
@@ -286,7 +258,7 @@ async function uploadPatientPhoto(event: Event) {
               <img v-if="patientPhotoUrl" :src="patientPhotoUrl" alt="Patient" />
               <div v-else class="photo-placeholder">No photo</div>
             </div>
-            <div>
+            <div v-if="isEditing">
               <input
                 ref="photoInput"
                 type="file"
@@ -304,8 +276,17 @@ async function uploadPatientPhoto(event: Event) {
           </div>
           <div class="flex-1">
             <h2 class="flex align-items-center gap-2">
-              {{ patient.name }}
-              <Tag :value="patient.species" />
+              <span v-if="!isEditing">{{ patient.name }}</span>
+              <InputText v-else v-model="patientName" placeholder="Name" />
+              <Tag v-if="!isEditing" :value="patient.species" />
+              <Dropdown
+                v-else
+                v-model="speciesId"
+                :options="speciesOptions"
+                optionLabel="name"
+                optionValue="id"
+                placeholder="Select species"
+              />
             </h2>
             <p v-if="owner">
               Owner: {{ owner.first_name }} {{ owner.last_name }} ({{
@@ -313,97 +294,80 @@ async function uploadPatientPhoto(event: Event) {
               }}, {{ owner.phone }})
             </p>
             <p v-else>Loading owner...</p>
+            <div class="mt-2">
+              <Button
+                :label="isEditing ? 'Save' : 'Edit patient'"
+                :loading="savingAll"
+                @click="isEditing ? savePatientAll() : startEdit()"
+              />
+            </div>
             <div class="mt-3 flex flex-column gap-2">
               <div class="flex flex-wrap align-items-center gap-2">
                 <label class="w-8rem">Breed</label>
-                <InputText v-model="patientBreed" placeholder="Breed" />
-                <Button
-                  label="Save"
-                  size="small"
-                  :loading="savingBreed"
-                  @click="savePatientBreed"
-                />
+                <span v-if="!isEditing">{{ patient.breed || "-" }}</span>
+                <InputText v-else v-model="patientBreed" placeholder="Breed" />
               </div>
 
               <div class="flex flex-wrap align-items-center gap-2">
                 <label class="w-8rem">Birth Date</label>
+                <span v-if="!isEditing">{{ patient.birth_date || "-" }}</span>
                 <DatePicker
+                  v-else
                   v-model="patientBirthDate"
                   dateFormat="yy-mm-dd"
                   placeholder="Birth date"
                   showIcon
                 />
-                <Button
-                  label="Save"
-                  size="small"
-                  :loading="savingBirthDate"
-                  @click="savePatientBirthDate"
-                />
               </div>
 
               <div class="flex flex-wrap align-items-center gap-2">
                 <label class="w-8rem">Sex</label>
+                <span v-if="!isEditing">{{ patient.sex || "unknown" }}</span>
                 <Dropdown
+                  v-else
                   v-model="patientSex"
                   :options="sexOptions"
                   optionLabel="label"
                   optionValue="value"
                   placeholder="Select sex"
                 />
-                <Button
-                  label="Save"
-                  size="small"
-                  :loading="savingSex"
-                  @click="savePatientSex"
-                />
               </div>
 
               <div class="flex flex-wrap align-items-center gap-2">
                 <label class="w-8rem">Weight (kg)</label>
+                <span v-if="!isEditing">{{ patient.weight ?? "-" }}</span>
                 <InputNumber
+                  v-else
                   v-model="patientWeight"
                   :minFractionDigits="0"
                   :maxFractionDigits="2"
                   placeholder="Weight"
                 />
-                <Button
-                  label="Save"
-                  size="small"
-                  :loading="savingWeight"
-                  @click="savePatientWeight"
-                />
               </div>
 
               <div class="flex flex-wrap align-items-center gap-2">
                 <label class="w-8rem">Microchip</label>
+                <span v-if="!isEditing">
+                  {{ patient.microchip_number || "-" }}
+                </span>
                 <InputText
+                  v-else
                   v-model="patientMicrochipNumber"
                   placeholder="Microchip number"
-                />
-                <Button
-                  label="Save"
-                  size="small"
-                  :loading="savingMicrochipNumber"
-                  @click="savePatientMicrochipNumber"
                 />
               </div>
             </div>
 
             <div class="mt-3">
               <label class="block mb-2">Comment:</label>
+              <p v-if="!isEditing">{{ patient.comment || "-" }}</p>
               <Textarea
+                v-else
                 v-model="patientComment"
                 rows="3"
                 autoResize
                 class="w-full"
               />
-              <div class="mt-2">
-                <Button
-                  label="Save"
-                  :loading="savingComment"
-                  @click="savePatientComment"
-                />
-              </div>
             </div>
           </div>
         </div>
@@ -468,24 +432,16 @@ async function uploadPatientPhoto(event: Event) {
           </div>
 
           <div v-if="expandedOrders[o.id]" style="margin-top: 1rem">
-            <div class="mb-3">
-              <b>Specimens:</b>
-              <div v-for="s in o.specimens" :key="s.specimen_id">
-                🧪 {{ s.specimen_id }} |
-                <Tag :value="s.status" severity="info" />
-              </div>
-            </div>
+            <p>Comment: {{ o.comment || "N/A" }}</p>
 
             <div class="mb-3">
-              <b>Test Runs & Results:</b>
+              <b>Test Runs:</b>
               <table class="w-full text-sm">
                 <thead>
                   <tr>
                     <th class="text-left">Test</th>
                     <th class="text-left">Barcode</th>
                     <th class="text-left">Run Status</th>
-                    <th class="text-left">Specimen Status</th>
-                    <th class="text-left">Results</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -493,27 +449,6 @@ async function uploadPatientPhoto(event: Event) {
                     <td>{{ testLabel(run.test_catalog_id) }}</td>
                     <td>{{ run.specimen_id }}</td>
                     <td><Tag :value="run.status" severity="warning" /></td>
-                    <td>
-                      <Tag
-                        :value="specimenStatus(o, run.specimen_id)"
-                        severity="info"
-                      />
-                    </td>
-                    <td>
-                      <div v-if="run.results && run.results.length > 0">
-                        <div v-for="r in run.results" :key="r.id">
-                          {{ r.value || "N/A" }} {{ r.units || "-" }} | Flags:
-                          {{ r.flags || "-" }} | Completed:
-                          {{
-                            r.completed_at
-                              ? new Date(r.completed_at).toLocaleString()
-                              : "N/A"
-                          }}
-                          | Verified: {{ r.verified }}
-                        </div>
-                      </div>
-                      <div v-else>No results yet</div>
-                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -525,8 +460,6 @@ async function uploadPatientPhoto(event: Event) {
                 🩺 {{ serviceLabel(sr.service_catalog_id) }} |
                 <Tag :value="sr.status" severity="info" />
               </div>
-
-              <p>Comment: {{ o.comment || "N/A" }}</p>
             </div>
           </div>
         </template>
