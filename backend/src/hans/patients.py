@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from typing import Optional, List, Literal
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,7 @@ from hans.core.core import audit_log
 from hans.core.db import Base, get_db
 from hans.core.auth import get_current_user, User
 from hans.owners import Owner
+from hans.tools.media import MediaService
 
 
 # ---------------- SCHEMAS ----------------
@@ -108,6 +110,7 @@ class Patient(Base):
 
 router = APIRouter(prefix="/patients")
 species_router = APIRouter(prefix="/species")
+media_service = MediaService()
 
 
 @species_router.get("/", response_model=List[SpeciesRead])
@@ -176,3 +179,35 @@ async def get_patient(patient_id: int, db: AsyncSession = Depends(get_db), user:
     if not patient:
         raise HTTPException(404, "Patient not found")
     return patient
+
+@router.post("/{patient_id}/photo")
+async def upload_patient_photo(
+    patient_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Ensure the patient exists before saving a photo.
+    result = await db.execute(select(Patient).where(Patient.id == patient_id))
+    patient = result.scalar_one_or_none()
+    if not patient:
+        raise HTTPException(404, "Patient not found")
+    relative_path = await media_service.save_patient_photo(patient_id, file)
+    audit_log(user.id, f"Uploaded photo for patient {patient_id}")
+    return {"path": relative_path}
+
+@router.get("/{patient_id}/photo")
+async def get_patient_photo(
+    patient_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Ensure the patient exists before reading a photo.
+    result = await db.execute(select(Patient).where(Patient.id == patient_id))
+    patient = result.scalar_one_or_none()
+    if not patient:
+        raise HTTPException(404, "Patient not found")
+    photo_path = media_service.patient_photo_path(patient_id)
+    if not photo_path.exists():
+        raise HTTPException(404, "Patient photo not found")
+    return FileResponse(str(photo_path), media_type="image/jpeg")

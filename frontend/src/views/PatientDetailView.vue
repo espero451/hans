@@ -35,6 +35,9 @@ const savingWeight = ref(false);
 const savingBreed = ref(false);
 const savingMicrochipNumber = ref(false);
 const savingBirthDate = ref(false);
+const patientPhotoUrl = ref<string | null>(null);
+const uploadingPhoto = ref(false);
+const photoInput = ref<HTMLInputElement | null>(null);
 
 const expandedOrders = ref<Record<number, boolean>>({});
 
@@ -94,6 +97,8 @@ async function load() {
 
   const servicesRes = await api.get(`/services/`);
   services.value = servicesRes.data;
+
+  await loadPatientPhoto();
 }
 
 async function addOrder() {
@@ -230,108 +235,176 @@ function specimenStatus(order: any, specimenId: string) {
   );
   return specimen?.status || "N/A";
 }
+
+async function loadPatientPhoto() {
+  if (!patient.value?.id) return;
+  if (patientPhotoUrl.value) {
+    URL.revokeObjectURL(patientPhotoUrl.value);
+    patientPhotoUrl.value = null;
+  }
+  try {
+    const res = await api.get(`/patients/${patient.value.id}/photo`, {
+      responseType: "blob",
+    });
+    patientPhotoUrl.value = URL.createObjectURL(res.data);
+  } catch (err) {
+    patientPhotoUrl.value = null;
+  }
+}
+
+function triggerPhotoSelect() {
+  photoInput.value?.click();
+}
+
+async function uploadPatientPhoto(event: Event) {
+  if (!patient.value?.id) return;
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  uploadingPhoto.value = true;
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    await api.post(`/patients/${patient.value.id}/photo`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    await loadPatientPhoto();
+  } finally {
+    uploadingPhoto.value = false;
+    input.value = "";
+  }
+}
 </script>
 
 <template>
   <div v-if="patient" class="p-4 flex flex-column gap-3">
     <Card>
-      <template #title>
-        {{ patient.name }} <Tag :value="patient.species" />
-      </template>
       <template #content>
-        <p v-if="owner">
-          Owner: {{ owner.first_name }} {{ owner.last_name }} ({{ owner.email }},
-          {{ owner.phone }})
-        </p>
-        <p v-else>Loading owner...</p>
-        <!-- <p v-if="patient.breed">Breed: {{ patient.breed }}</p> -->
-        <!-- <p v-if="patient.birth_date">Birth Date: {{ patient.birth_date }}</p> -->
-        <div class="mt-3 flex flex-column gap-2">
+        <div class="flex flex-column md:flex-row gap-4">
+          <div class="flex flex-column align-items-center gap-3">
+            <div class="photo-circle">
+              <img v-if="patientPhotoUrl" :src="patientPhotoUrl" alt="Patient" />
+              <div v-else class="photo-placeholder">No photo</div>
+            </div>
+            <div>
+              <input
+                ref="photoInput"
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="uploadPatientPhoto"
+              />
+              <Button
+                label="Add"
+                size="small"
+                :loading="uploadingPhoto"
+                @click="triggerPhotoSelect"
+              />
+            </div>
+          </div>
+          <div class="flex-1">
+            <h2 class="flex align-items-center gap-2">
+              {{ patient.name }}
+              <Tag :value="patient.species" />
+            </h2>
+            <p v-if="owner">
+              Owner: {{ owner.first_name }} {{ owner.last_name }} ({{
+                owner.email
+              }}, {{ owner.phone }})
+            </p>
+            <p v-else>Loading owner...</p>
+            <div class="mt-3 flex flex-column gap-2">
+              <div class="flex flex-wrap align-items-center gap-2">
+                <label class="w-8rem">Breed</label>
+                <InputText v-model="patientBreed" placeholder="Breed" />
+                <Button
+                  label="Save"
+                  size="small"
+                  :loading="savingBreed"
+                  @click="savePatientBreed"
+                />
+              </div>
 
-          <div class="flex flex-wrap align-items-center gap-2">
-            <label class="w-8rem">Breed</label>
-            <InputText v-model="patientBreed" placeholder="Breed" />
-            <Button
-              label="Save"
-              size="small"
-              :loading="savingBreed"
-              @click="savePatientBreed"
-            />
-          </div>
-          
-          <div class="flex flex-wrap align-items-center gap-2">
-            <label class="w-8rem">Birth Date</label>
-            <DatePicker
-              v-model="patientBirthDate"
-              dateFormat="yy-mm-dd"
-              placeholder="Birth date"
-              showIcon
-            />
-            <Button
-              label="Save"
-              size="small"
-              :loading="savingBirthDate"
-              @click="savePatientBirthDate"
-            />
-          </div>
-          
-          <div class="flex flex-wrap align-items-center gap-2">
-            <label class="w-8rem">Sex</label>
-            <Dropdown
-              v-model="patientSex"
-              :options="sexOptions"
-              optionLabel="label"
-              optionValue="value"
-              placeholder="Select sex"
-            />
-            <Button
-              label="Save"
-              size="small"
-              :loading="savingSex"
-              @click="savePatientSex"
-            />
-          </div>
-          
-          <div class="flex flex-wrap align-items-center gap-2">
-            <label class="w-8rem">Weight (kg)</label>
-            <InputNumber
-              v-model="patientWeight"
-              :minFractionDigits="0"
-              :maxFractionDigits="2"
-              placeholder="Weight"
-            />
-            <Button
-              label="Save"
-              size="small"
-              :loading="savingWeight"
-              @click="savePatientWeight"
-            />
-          </div>
+              <div class="flex flex-wrap align-items-center gap-2">
+                <label class="w-8rem">Birth Date</label>
+                <DatePicker
+                  v-model="patientBirthDate"
+                  dateFormat="yy-mm-dd"
+                  placeholder="Birth date"
+                  showIcon
+                />
+                <Button
+                  label="Save"
+                  size="small"
+                  :loading="savingBirthDate"
+                  @click="savePatientBirthDate"
+                />
+              </div>
 
-          <div class="flex flex-wrap align-items-center gap-2">
-            <label class="w-8rem">Microchip</label>
-            <InputText
-              v-model="patientMicrochipNumber"
-              placeholder="Microchip number"
-            />
-            <Button
-              label="Save"
-              size="small"
-              :loading="savingMicrochipNumber"
-              @click="savePatientMicrochipNumber"
-            />
-          </div>
-        </div>
-        
-        <div class="mt-3">
-          <label class="block mb-2">Comment:</label>
-          <Textarea v-model="patientComment" rows="3" autoResize class="w-full" />
-          <div class="mt-2">
-            <Button
-              label="Save"
-              :loading="savingComment"
-              @click="savePatientComment"
-            />
+              <div class="flex flex-wrap align-items-center gap-2">
+                <label class="w-8rem">Sex</label>
+                <Dropdown
+                  v-model="patientSex"
+                  :options="sexOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Select sex"
+                />
+                <Button
+                  label="Save"
+                  size="small"
+                  :loading="savingSex"
+                  @click="savePatientSex"
+                />
+              </div>
+
+              <div class="flex flex-wrap align-items-center gap-2">
+                <label class="w-8rem">Weight (kg)</label>
+                <InputNumber
+                  v-model="patientWeight"
+                  :minFractionDigits="0"
+                  :maxFractionDigits="2"
+                  placeholder="Weight"
+                />
+                <Button
+                  label="Save"
+                  size="small"
+                  :loading="savingWeight"
+                  @click="savePatientWeight"
+                />
+              </div>
+
+              <div class="flex flex-wrap align-items-center gap-2">
+                <label class="w-8rem">Microchip</label>
+                <InputText
+                  v-model="patientMicrochipNumber"
+                  placeholder="Microchip number"
+                />
+                <Button
+                  label="Save"
+                  size="small"
+                  :loading="savingMicrochipNumber"
+                  @click="savePatientMicrochipNumber"
+                />
+              </div>
+            </div>
+
+            <div class="mt-3">
+              <label class="block mb-2">Comment:</label>
+              <Textarea
+                v-model="patientComment"
+                rows="3"
+                autoResize
+                class="w-full"
+              />
+              <div class="mt-2">
+                <Button
+                  label="Save"
+                  :loading="savingComment"
+                  @click="savePatientComment"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </template>
@@ -461,3 +534,28 @@ function specimenStatus(order: any, specimenId: string) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.photo-circle {
+  width: 196px;
+  height: 196px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid #47535f;
+  background: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-placeholder {
+  font-size: 12px;
+  color: #6b7280;
+}
+</style>
