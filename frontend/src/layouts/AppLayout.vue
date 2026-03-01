@@ -6,12 +6,18 @@
           <img src="/assets/hans.png" width="48" height="48" class="brand-logo" alt="Hans LIS" />
         </template>
         <template #end>
-          <Button
-            icon="pi pi-power-off"
-            severity="secondary"
-            text
-            @click="router.push('/login')"
-          />
+          <div class="flex align-items-center gap-3">
+            <span v-if="user">
+              {{ user.username }}
+            </span>
+
+            <Button
+              icon="pi pi-power-off"
+              severity="secondary"
+              text
+              @click="handleLogout"
+            />
+          </div>
         </template>
       </Menubar>
     </div>
@@ -23,11 +29,31 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from "vue";
 import { useRouter } from "vue-router";
 import Menubar from "primevue/menubar";
 import Button from "primevue/button";
+import { useAuth } from "../composables/useAuth"
 
 const router = useRouter();
+
+
+const { user, clearUser, loadUser } = useAuth()
+
+onMounted(async () => {
+  try {
+    await loadUser()
+  } catch (err) {
+    localStorage.removeItem("token")
+  }
+})
+
+function handleLogout() {
+  clearUser()
+  localStorage.removeItem("token")
+  router.push("/login")
+}
+
 
 const items = [
   { label: "Dashboard", icon: "pi pi-home", command: () => router.push("/dashboard") },

@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, APIRouter
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import jwt, JWTError
 from passlib.context import CryptContext
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import Mapped, mapped_column
@@ -59,7 +60,7 @@ async def login(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = 
     return {"access_token": token, "token_type": "bearer"}
 
 
-# ---------------- MODELS ----------------
+# --- MODELS ----------------------------------------------------------
 
 # SQLAlchemy model for application users.
 # Stores credentials and role metadata for authentication and authorization.
@@ -73,8 +74,19 @@ class User(Base):
     role: Mapped[str]
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
+# Public user data returned by auth endpoints.
+class UserOut(BaseModel):
+    id: int
+    username: str
+    email: str
+    role: str
+    created_at: datetime
 
-# ---------------- DEPENDENCIES ----------------
+    class Config:
+        from_attributes = True
+
+
+# --- DEPENDENCIES ----------------------------------------------------
 
 # FastAPI dependency to extract and validate the current user from a JWT.
 # Used by protected endpoints to enforce authentication.
@@ -107,3 +119,17 @@ def require_roles(*allowed_roles: str):
 # Role dependencies.
 require_admin = require_roles(ROLE_ADMIN)
 require_staff_or_admin = require_roles(ROLE_ADMIN, ROLE_STAFF)
+
+
+# --- ROUTES ----------------------------------------------------------
+
+router = APIRouter()
+
+@router.get("/auth/me")
+async def read_current_user(current_user=Depends(get_current_user)):
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "role": current_user.role,
+    }

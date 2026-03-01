@@ -13,7 +13,7 @@ from hans.interfaces.dispatcher.api import router as dispatcher_router
 from hans.admin import build_admin
 from hans.runtime import register_runtime
 
-
+app.include_router(auth.router)
 app.include_router(users_router, tags=["users"])
 app.include_router(tests_router, tags=["tests"])
 app.include_router(owners_router, tags=["owners"])
@@ -31,13 +31,3 @@ build_admin(app)
 
 # Start background services tied to app lifecycle.
 register_runtime(app)
-
-# without alembic:
-# from sqlalchemy import text
-# from hans.core.db import engine, Base
-# from hans import users, owners, patients, orders, services, tests, specimens, tubes, instruments
-# @app.on_event("startup")
-# async def startup():
-#     async with engine.begin() as conn:
-#         await conn.execute(text("CREATE SEQUENCE IF NOT EXISTS specimen_barcode_seq"))
-#         await conn.run_sync(Base.metadata.create_all)
