@@ -18,12 +18,17 @@ Hans LIS provides a REST API to manage core entities in a veterinary laboratory 
 - Result entry and status tracking for performed tests
 - TCP server and protocol handlers for laboratory instrument integration
 
+
+<p align="center">
+  <img src="docs/screenshots/patient.png" alt="Patient" width="100%">
+</p>
 <p align="center">
   <img src="docs/screenshots/orders.png" alt="Orders" width="100%">
 </p>
 <p align="center">
-  <img src="docs/screenshots/settings.png" alt="Settings" width="100%">
+  <img src="docs/screenshots/order.png" alt="Order" width="100%">
 </p>
+
 
 ## Main Functionality
 
