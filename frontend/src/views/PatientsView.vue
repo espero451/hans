@@ -94,7 +94,7 @@ function ownerLabel(ownerId: number) {
 </script>
 
 <template>
-  <div class="p-4 flex flex-column gap-3">
+  <div class="flex flex-column gap-3">
     <h2>Patients</h2>
 
     <div class="surface-card p-3 border-round-xl shadow-1">

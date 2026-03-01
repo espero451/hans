@@ -41,7 +41,7 @@ const items = [
 <style scoped>
 .app-shell {
   width: 100%;
-  padding: 1rem;
+  /* padding: 1rem; */
 }
 
 .brand-logo {
@@ -59,6 +59,7 @@ const items = [
   width: 100%;
   max-width: 100%;
   margin: 0 auto;
+  padding: 1rem; 
 }
 
 .main-content {

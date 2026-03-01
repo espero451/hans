@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../api/http";
 import Button from "primevue/button";
 import Card from "primevue/card";
-import Divider from "primevue/divider";
+// import Divider from "primevue/divider";
 import MultiSelect from "primevue/multiselect";
 import InputText from "primevue/inputtext";
 import InputNumber from "primevue/inputnumber";
@@ -21,24 +21,17 @@ const orders = ref<any[]>([]);
 const tests = ref<any[]>([]);
 const services = ref<any[]>([]);
 const speciesOptions = ref<any[]>([]);
-const speciesId = ref<number | null>(null);
 const selectedTestIds = ref<number[]>([]);
 const selectedServiceIds = ref<number[]>([]);
 const orderComment = ref("");
-const patientComment = ref("");
 const savingAll = ref(false);
 const isEditing = ref(false);
-const patientName = ref("");
-const patientSex = ref("");
-const patientWeight = ref<number | null>(null);
-const patientBreed = ref("");
-const patientMicrochipNumber = ref("");
-const patientBirthDate = ref<Date | null>(null);
+const editablePatient = ref<any | null>(null);
+const showOrderForm = ref(false);
 const patientPhotoUrl = ref<string | null>(null);
 const uploadingPhoto = ref(false);
 const photoInput = ref<HTMLInputElement | null>(null);
 
-const expandedOrders = ref<Record<number, boolean>>({});
 
 const testOptions = computed(() =>
   tests.value.map((t) => ({ label: t.code || t.name, value: t.id }))
@@ -46,8 +39,24 @@ const testOptions = computed(() =>
 const serviceOptions = computed(() =>
   services.value.map((s) => ({ label: s.name, value: s.id }))
 );
-const speciesName = computed(() => {
-  const selected = speciesOptions.value.find((s) => s.id === speciesId.value);
+const testLabelMap = computed(() => {
+  const map = new Map<number, string>();
+  tests.value.forEach((t) => {
+    map.set(t.id, t.code || t.name);
+  });
+  return map;
+});
+const serviceLabelMap = computed(() => {
+  const map = new Map<number, string>();
+  services.value.forEach((s) => {
+    map.set(s.id, s.name);
+  });
+  return map;
+});
+const speciesDisplayName = computed(() => {
+  const speciesId = patient.value?.species_id;
+  if (!speciesId) return "";
+  const selected = speciesOptions.value.find((s) => s.id === speciesId);
   return selected ? selected.name : "";
 });
 const sexOptions = [
@@ -57,52 +66,15 @@ const sexOptions = [
 ];
 
 async function load() {
-  const id = route.params.id;
+  await loadPatient();
 
-  // patient loading
-  const patientRes = await api.get(`/patients/${id}`);
-  patient.value = patientRes.data;
-  patientComment.value = patient.value?.comment || "";
-  patientSex.value = patient.value?.sex || "";
-  patientWeight.value = patient.value?.weight ?? null;
-  patientBreed.value = patient.value?.breed || "";
-  patientMicrochipNumber.value = patient.value?.microchip_number || "";
-  patientName.value = patient.value?.name || "";
-  patientBirthDate.value = patient.value?.birth_date
-    ? new Date(patient.value.birth_date)
-    : null;
+  await Promise.all([
+    loadOrders(),
+    loadTests(),
+    loadServices(),
+    loadSpecies(),
+  ]);
 
-  // owner loading
-  if (patient.value.owner_id) {
-    try {
-      const ownerRes = await api.get(`/owners/${patient.value.owner_id}`);
-      owner.value = ownerRes.data;
-    } catch (err) {
-      console.error("Failed to load owner:", err);
-      owner.value = null;
-    }
-  }
-
-  try {
-    const ordersRes = await api.get(`/patients/${id}/orders`);
-    orders.value = ordersRes.data;
-    expandedOrders.value = Object.fromEntries(
-      orders.value.map((order) => [order.id, !order.archived])
-    );
-  } catch (err) {
-    console.error("Failed to load orders:", err);
-    orders.value = [];
-    expandedOrders.value = {};
-  }
-
-  // tests/services loading
-  const testsRes = await api.get(`/tests/`);
-  tests.value = testsRes.data;
-
-  const servicesRes = await api.get(`/services/`);
-  services.value = servicesRes.data;
-
-  await loadSpecies();
   await loadPatientPhoto();
 }
 
@@ -116,8 +88,7 @@ async function addOrder() {
     comment: orderComment.value,
   });
 
-  // refresh orders localy
-  orders.value.push(res.data);
+  await loadOrders();
   // clean form
   selectedTestIds.value = [];
   selectedServiceIds.value = [];
@@ -130,48 +101,34 @@ async function addOrder() {
 
 function startEdit() {
   if (!patient.value) return;
-  patientComment.value = patient.value?.comment || "";
-  patientSex.value = patient.value?.sex || "";
-  patientWeight.value = patient.value?.weight ?? null;
-  patientBreed.value = patient.value?.breed || "";
-  patientMicrochipNumber.value = patient.value?.microchip_number || "";
-  patientName.value = patient.value?.name || "";
-  patientBirthDate.value = patient.value?.birth_date
-    ? new Date(patient.value.birth_date)
-    : null;
-  syncSpeciesSelection();
+  editablePatient.value = {
+    ...patient.value,
+    species_id: patient.value?.species_id ?? null,
+    birth_date: patient.value?.birth_date
+      ? new Date(patient.value.birth_date)
+      : null,
+  };
   isEditing.value = true;
 }
 
 async function savePatientAll() {
-  if (!patient.value) return;
+  if (!patient.value || !editablePatient.value) return;
   savingAll.value = true;
   try {
-    const birthDate = patientBirthDate.value
-      ? patientBirthDate.value.toISOString().split("T")[0]
+    const birthDate = editablePatient.value.birth_date
+      ? editablePatient.value.birth_date.toISOString().split("T")[0]
       : null;
     const res = await api.patch(`/patients/${patient.value.id}`, {
-      name: patientName.value || null,
-      species: speciesName.value || null,
-      species_id: speciesId.value,
-      comment: patientComment.value || null,
-      sex: patientSex.value || null,
-      weight: patientWeight.value ?? null,
-      breed: patientBreed.value || null,
-      microchip_number: patientMicrochipNumber.value || null,
+      name: editablePatient.value.name || null,
+      species_id: editablePatient.value.species_id ?? null,
+      comment: editablePatient.value.comment || null,
+      sex: editablePatient.value.sex || null,
+      weight: editablePatient.value.weight ?? null,
+      breed: editablePatient.value.breed || null,
+      microchip_number: editablePatient.value.microchip_number || null,
       birth_date: birthDate,
     });
     patient.value = res.data;
-    patientComment.value = patient.value?.comment || "";
-    patientSex.value = patient.value?.sex || "";
-    patientWeight.value = patient.value?.weight ?? null;
-    patientBreed.value = patient.value?.breed || "";
-    patientMicrochipNumber.value = patient.value?.microchip_number || "";
-    patientName.value = patient.value?.name || "";
-    patientBirthDate.value = patient.value?.birth_date
-      ? new Date(patient.value.birth_date)
-      : null;
-    syncSpeciesSelection();
     isEditing.value = false;
   } finally {
     savingAll.value = false;
@@ -179,41 +136,64 @@ async function savePatientAll() {
 }
 
 onMounted(load);
-
-function toggleOrder(orderId: number) {
-  expandedOrders.value[orderId] = !expandedOrders.value[orderId];
-}
+onUnmounted(() => {
+  if (patientPhotoUrl.value) {
+    URL.revokeObjectURL(patientPhotoUrl.value);
+    patientPhotoUrl.value = null;
+  }
+});
 
 function testLabel(testCatalogId: number) {
-  const test = tests.value.find((t) => t.id === testCatalogId);
-  return test ? test.code || test.name : testCatalogId;
+  return testLabelMap.value.get(testCatalogId) ?? testCatalogId;
 }
 
 function serviceLabel(serviceCatalogId: number) {
-  const service = services.value.find((s) => s.id === serviceCatalogId);
-  return service ? service.name : serviceCatalogId;
+  return serviceLabelMap.value.get(serviceCatalogId) ?? serviceCatalogId;
+}
+
+async function loadPatient() {
+  const id = route.params.id;
+  const patientRes = await api.get(`/patients/${id}`);
+  patient.value = patientRes.data;
+  if (patient.value.owner_id) {
+    try {
+      const ownerRes = await api.get(`/owners/${patient.value.owner_id}`);
+      owner.value = ownerRes.data;
+    } catch (err) {
+      console.error("Failed to load owner:", err);
+      owner.value = null;
+    }
+  }
+}
+
+async function loadOrders() {
+  if (!patient.value?.id) return;
+  try {
+    const ordersRes = await api.get(`/patients/${patient.value.id}/orders`);
+    orders.value = ordersRes.data;
+  } catch (err) {
+    console.error("Failed to load orders:", err);
+    orders.value = [];
+  }
+}
+
+async function loadTests() {
+  const testsRes = await api.get(`/tests/`);
+  tests.value = testsRes.data;
+}
+
+async function loadServices() {
+  const servicesRes = await api.get(`/services/`);
+  services.value = servicesRes.data;
 }
 
 async function loadSpecies() {
   const res = await api.get("/species/");
   speciesOptions.value = res.data;
-  syncSpeciesSelection();
-}
-
-function syncSpeciesSelection() {
-  if (!patient.value) return;
-  const selected = speciesOptions.value.find(
-    (s) => s.name === patient.value?.species
-  );
-  speciesId.value = selected ? selected.id : null;
 }
 
 async function loadPatientPhoto() {
   if (!patient.value?.id) return;
-  if (patientPhotoUrl.value) {
-    URL.revokeObjectURL(patientPhotoUrl.value);
-    patientPhotoUrl.value = null;
-  }
   try {
     const res = await api.get(`/patients/${patient.value.id}/photo`, {
       responseType: "blob",
@@ -249,226 +229,260 @@ async function uploadPatientPhoto(event: Event) {
 </script>
 
 <template>
-  <div v-if="patient" class="p-4 flex flex-column gap-3">
-    <Card>
-      <template #content>
-        <div class="flex flex-column md:flex-row gap-4">
-          <div class="flex flex-column align-items-center gap-3">
-            <div class="photo-circle">
-              <img v-if="patientPhotoUrl" :src="patientPhotoUrl" alt="Patient" />
-              <div v-else class="photo-placeholder">No photo</div>
-            </div>
-            <div v-if="isEditing">
-              <input
-                ref="photoInput"
-                type="file"
-                accept="image/*"
-                class="hidden"
-                @change="uploadPatientPhoto"
-              />
-              <Button
-                label="Add"
-                size="small"
-                :loading="uploadingPhoto"
-                @click="triggerPhotoSelect"
-              />
-            </div>
-          </div>
-          <div class="flex-1">
-            <h2 class="flex align-items-center gap-2">
-              <span v-if="!isEditing">{{ patient.name }}</span>
-              <InputText v-else v-model="patientName" placeholder="Name" />
-              <Tag v-if="!isEditing" :value="patient.species" />
-              <Dropdown
-                v-else
-                v-model="speciesId"
-                :options="speciesOptions"
-                optionLabel="name"
-                optionValue="id"
-                placeholder="Select species"
-              />
-            </h2>
-            <p v-if="owner">
-              Owner: {{ owner.first_name }} {{ owner.last_name }} ({{
-                owner.email
-              }}, {{ owner.phone }})
-            </p>
-            <p v-else>Loading owner...</p>
-            <div class="mt-2">
-              <Button
-                :label="isEditing ? 'Save' : 'Edit patient'"
-                :loading="savingAll"
-                @click="isEditing ? savePatientAll() : startEdit()"
-              />
-            </div>
-            <div class="mt-3 flex flex-column gap-2">
-              <div class="flex flex-wrap align-items-center gap-2">
-                <label class="w-8rem">Breed</label>
-                <span v-if="!isEditing">{{ patient.breed || "-" }}</span>
-                <InputText v-else v-model="patientBreed" placeholder="Breed" />
+  <div v-if="patient">
+  <h2 class="flex align-items-center gap-2">
+    <span v-if="!isEditing">{{ patient.name }}</span>
+    <InputText
+      v-else
+      v-model="editablePatient.name"
+      placeholder="Name"
+    />
+                  <Tag v-if="!isEditing" :value="speciesDisplayName" />
+    <Dropdown
+      v-else
+      v-model="editablePatient.species_id"
+      :options="speciesOptions"
+      optionLabel="name"
+      optionValue="id"
+      placeholder="Select species"
+    />
+                  <Button
+                    :label="isEditing ? 'Save' : 'Edit patient'"
+                    :loading="savingAll"
+                    @click="isEditing ? savePatientAll() : startEdit()"
+                    size="small"
+                  />
+  </h2>
+    <div class="patient-layout">
+      <div class="patient-left">
+        <Card>
+          <template #content>
+            <div class="flex flex-column md:flex-row gap-4">
+              <div class="flex flex-column align-items-center gap-3">
+                <div class="photo-circle">
+                  <img
+                    v-if="patientPhotoUrl"
+                    :src="patientPhotoUrl"
+                    alt="Patient"
+                  />
+                  <div v-else class="photo-placeholder">No photo</div>
+                </div>
+                <div v-if="isEditing">
+                  <input
+                    ref="photoInput"
+                    type="file"
+                    accept="image/*"
+                    class="hidden"
+                    @change="uploadPatientPhoto"
+                  />
+                  <Button
+                    label="Add"
+                    size="small"
+                    :loading="uploadingPhoto"
+                    @click="triggerPhotoSelect"
+                  />
+                </div>
               </div>
+              <div class="flex-1">
+                <p v-if="owner">
+                  Owner: {{ owner.first_name }} {{ owner.last_name }} ({{
+                    owner.email
+                  }}, {{ owner.phone }})
+                </p>
+                <p v-else>Loading owner...</p>
 
-              <div class="flex flex-wrap align-items-center gap-2">
-                <label class="w-8rem">Birth Date</label>
-                <span v-if="!isEditing">{{ patient.birth_date || "-" }}</span>
-                <DatePicker
-                  v-else
-                  v-model="patientBirthDate"
-                  dateFormat="yy-mm-dd"
-                  placeholder="Birth date"
-                  showIcon
-                />
-              </div>
+                <div class="mt-3 flex flex-column gap-2">
+                  <div class="flex flex-wrap align-items-center gap-2">
+                    <label class="w-8rem">Breed</label>
+                    <span v-if="!isEditing">{{ patient.breed || "-" }}</span>
+                    <InputText
+                      v-else
+                      v-model="editablePatient.breed"
+                      placeholder="Breed"
+                    />
+                  </div>
 
-              <div class="flex flex-wrap align-items-center gap-2">
-                <label class="w-8rem">Sex</label>
-                <span v-if="!isEditing">{{ patient.sex || "unknown" }}</span>
-                <Dropdown
-                  v-else
-                  v-model="patientSex"
-                  :options="sexOptions"
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Select sex"
-                />
-              </div>
+                  <div class="flex flex-wrap align-items-center gap-2">
+                    <label class="w-8rem">Birth Date</label>
+                    <span v-if="!isEditing">{{ patient.birth_date || "-" }}</span>
+                    <DatePicker
+                      v-else
+                      v-model="editablePatient.birth_date"
+                      dateFormat="yy-mm-dd"
+                      placeholder="Birth date"
+                      showIcon
+                    />
+                  </div>
 
-              <div class="flex flex-wrap align-items-center gap-2">
-                <label class="w-8rem">Weight (kg)</label>
-                <span v-if="!isEditing">{{ patient.weight ?? "-" }}</span>
-                <InputNumber
-                  v-else
-                  v-model="patientWeight"
-                  :minFractionDigits="0"
-                  :maxFractionDigits="2"
-                  placeholder="Weight"
-                />
-              </div>
+                  <div class="flex flex-wrap align-items-center gap-2">
+                    <label class="w-8rem">Sex</label>
+                    <span v-if="!isEditing">{{ patient.sex || "unknown" }}</span>
+                    <Dropdown
+                      v-else
+                      v-model="editablePatient.sex"
+                      :options="sexOptions"
+                      optionLabel="label"
+                      optionValue="value"
+                      placeholder="Select sex"
+                    />
+                  </div>
 
-              <div class="flex flex-wrap align-items-center gap-2">
-                <label class="w-8rem">Microchip</label>
-                <span v-if="!isEditing">
-                  {{ patient.microchip_number || "-" }}
-                </span>
-                <InputText
-                  v-else
-                  v-model="patientMicrochipNumber"
-                  placeholder="Microchip number"
-                />
+                  <div class="flex flex-wrap align-items-center gap-2">
+                    <label class="w-8rem">Weight (kg)</label>
+                    <span v-if="!isEditing">{{ patient.weight ?? "-" }}</span>
+                    <InputNumber
+                      v-else
+                      v-model="editablePatient.weight"
+                      :minFractionDigits="0"
+                      :maxFractionDigits="2"
+                      placeholder="Weight"
+                    />
+                  </div>
+
+                  <div class="flex flex-wrap align-items-center gap-2">
+                    <label class="w-8rem">Microchip</label>
+                    <span v-if="!isEditing">
+                      {{ patient.microchip_number || "-" }}
+                    </span>
+                    <InputText
+                      v-else
+                      v-model="editablePatient.microchip_number"
+                      placeholder="Microchip number"
+                    />
+                  </div>
+                </div>
+
+                <div class="mt-3">
+                  <label class="block mb-2">Comment:</label>
+                  <p v-if="!isEditing">{{ patient.comment || "-" }}</p>
+                  <Textarea
+                    v-else
+                    v-model="editablePatient.comment"
+                    rows="3"
+                    autoResize
+                    class="w-full"
+                  />
+                </div>
               </div>
             </div>
+          </template>
+        </Card>
+      </div>
 
-            <div class="mt-3">
-              <label class="block mb-2">Comment:</label>
-              <p v-if="!isEditing">{{ patient.comment || "-" }}</p>
-              <Textarea
-                v-else
-                v-model="patientComment"
-                rows="3"
-                autoResize
-                class="w-full"
-              />
-            </div>
-          </div>
-        </div>
-      </template>
-    </Card>
-
-    <Card>
-      <template #title>Create a new order</template>
-      <template #content>
-        <div class="flex flex-wrap gap-2 align-items-center">
-          <MultiSelect
-            v-model="selectedTestIds"
-            :options="testOptions"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Select tests"
-            display="chip"
-          />
-          <MultiSelect
-            v-model="selectedServiceIds"
-            :options="serviceOptions"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Select services"
-            display="chip"
-          />
-          <InputText v-model="orderComment" placeholder="Comment" />
-          <Button label="Add Order" @click="addOrder" />
-        </div>
-      </template>
-    </Card>
-
-    <Divider />
-
-    <h3>Orders</h3>
-
-    <div v-for="o in orders" :key="o.id">
-      <Card>
-        <template #title>
-          <span>
-            Order #<a :href="`/orders/${o.id}`">{{ o.id }}</a>
-          </span>
-          <Tag
-            :value="o.archived ? 'Archived' : 'Active'"
-            :severity="o.archived ? 'secondary' : 'success'"
-            style="margin-left: 0.5rem"
-          />
+      <div class="patient-right">
+        <div class="orders-header">
+          <h3>Orders</h3>
           <Button
-            label="Toggle"
+            label="Create a new order"
             size="small"
-            severity="secondary"
-            style="margin-left: 0.75rem"
-            @click="toggleOrder(o.id)"
+            @click="showOrderForm = !showOrderForm"
           />
-        </template>
-        <template #content>
-          <div>
-            Created:
-            <span v-if="o.created_at">
-              {{ new Date(o.created_at).toLocaleString() }}
-            </span>
-          </div>
+        </div>
 
-          <div v-if="expandedOrders[o.id]" style="margin-top: 1rem">
-            <p>Comment: {{ o.comment || "N/A" }}</p>
-
-            <div class="mb-3">
-              <b>Test Runs:</b>
-              <table class="w-full text-sm">
-                <thead>
-                  <tr>
-                    <th class="text-left">Test</th>
-                    <th class="text-left">Barcode</th>
-                    <th class="text-left">Run Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="run in o.test_runs" :key="run.id">
-                    <td>{{ testLabel(run.test_catalog_id) }}</td>
-                    <td>{{ run.specimen_id }}</td>
-                    <td><Tag :value="run.status" severity="warning" /></td>
-                  </tr>
-                </tbody>
-              </table>
+        <Card v-if="showOrderForm">
+          <template #content>
+            <div class="flex flex-wrap gap-2 align-items-center">
+              <MultiSelect
+                v-model="selectedTestIds"
+                :options="testOptions"
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Select tests"
+                display="chip"
+              />
+              <MultiSelect
+                v-model="selectedServiceIds"
+                :options="serviceOptions"
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Select services"
+                display="chip"
+              />
+              <InputText v-model="orderComment" placeholder="Comment" />
+              <Button label="Add Order" @click="addOrder" />
             </div>
+          </template>
+        </Card>
 
-            <div>
-              <b>Services:</b>
-              <div v-for="sr in o.service_runs" :key="sr.id">
-                🩺 {{ serviceLabel(sr.service_catalog_id) }} |
-                <Tag :value="sr.status" severity="info" />
+        <Divider v-if="showOrderForm" />
+
+        <div v-for="o in orders" :key="o.id">
+          <Card>
+            <template #title>
+              <span>
+                Order #<a :href="`/orders/${o.id}`">{{ o.id }}</a>
+              </span>
+              <Tag
+                :value="o.archived ? 'Archived' : 'Active'"
+                :severity="o.archived ? 'secondary' : 'success'"
+                style="margin-left: 0.5rem"
+              />
+            </template>
+            <template #content>
+              <div>
+                Created:
+                <span v-if="o.created_at">
+                  {{ new Date(o.created_at).toLocaleString() }}
+                </span>
               </div>
-            </div>
-          </div>
-        </template>
-      </Card>
+
+              <div style="margin-top: 1rem">
+                <p>Comment: {{ o.comment || "N/A" }}</p>
+
+                <div class="mb-3">
+                  <b>Tests:</b>&nbsp;
+                <span
+                  v-for="(run, index) in o.test_runs || []"
+                  :key="run.id"
+                >
+                  {{ testLabel(run.test_catalog_id) }}
+                  <span v-if="Number(index) < (o.test_runs?.length || 0) - 1">
+                    |
+                  </span>
+                </span>
+                </div>
+
+                <div>
+                  <b>Services:</b>
+                  <div v-for="sr in o.service_runs" :key="sr.id">
+                     🩺 {{ serviceLabel(sr.service_catalog_id) }}
+                  </div>
+                </div>
+              </div>
+            </template>
+          </Card>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.patient-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 1.5rem;
+}
+
+.patient-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.orders-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+@media (max-width: 960px) {
+  .patient-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .photo-circle {
   width: 196px;
   height: 196px;

@@ -18,7 +18,7 @@ async function submit() {
 </script>
 
 <template>
-  <div class="p-4 flex justify-content-center">
+  <div class="flex justify-content-center">
     <Card class="surface-card p-3 border-round-xl shadow-1" style="max-width: 420px; width: 100%;">
       <template #title>Login</template>
       <template #content>

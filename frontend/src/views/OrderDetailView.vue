@@ -197,10 +197,8 @@ function cancelEditUrgency() {
 </script>
 
 <template>
-  <div v-if="patient" class="p-4 flex flex-column gap-3">
-    <Card>
-      <template #title>
-        Order #{{ order.id }}
+  <div v-if="patient" class="flex flex-column gap-3">
+        <h2>Order #{{ order.id }}
         <Tag
           :value="order.archived ? 'Archived' : 'Active'"
           :severity="order.archived ? 'secondary' : 'success'"
@@ -217,7 +215,9 @@ function cancelEditUrgency() {
           @click="archiveOrder(order.id)"
           class="ml-2"
         />
-      </template>
+        </h2>
+    <Card>
+
       <template #content>
         <p>Created: {{ new Date(order.created_at).toLocaleString() }}</p>
         <p><div class="flex align-items-center gap-2">
@@ -292,6 +292,16 @@ function cancelEditUrgency() {
       <template #content>
         <DataTable :value="order.specimens" dataKey="specimen_id">
           <Column field="specimen_id" header="Barcode" />
+          <!-- <Column header="Specimen Type">
+            <template #body="{ data }">
+              {{ data.specimen_types?.name || "-" }}
+            </template>
+          </Column>
+          <Column header="Tube Type">
+            <template #body="{ data }">
+              {{ data.specimen_types?.tube_type || "-" }}
+            </template>
+          </Column> -->
           <Column header="Status">
             <template #body="{ data }">
               <Tag :value="data.status" severity="info" />

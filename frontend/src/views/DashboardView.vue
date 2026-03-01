@@ -3,9 +3,10 @@ import Card from "primevue/card";
 </script>
 
 <template>
-  <div class="p-4 flex flex-column gap-3">
+  <div class="flex flex-column gap-3">
+    <h2>Dashboard</h2>
+
     <Card>
-      <template #title>Dashboard</template>
       <template #content>
         Overview widgets will be added here.
       </template>
