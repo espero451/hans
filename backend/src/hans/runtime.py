@@ -16,4 +16,3 @@ def register_runtime(app: FastAPI) -> None:
     async def _stop_dispatcher() -> None:
         # Stop dispatcher listeners on app shutdown.
         await dispatcher_service.stop()
-

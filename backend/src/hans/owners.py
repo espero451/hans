@@ -5,12 +5,26 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from hans.core.db import Base, get_db
-from hans.core.auth import get_current_user, User
 from hans.core.core import audit_log
+from hans.core.db import Base, get_db
+from hans.core.auth import get_current_user
+from hans.users import User
 
 
-# ---------------- SCHEMAS ----------------
+# --- MODELS ----------------------------------------------------------
+
+class Owner(Base):
+    __tablename__ = "owners"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    first_name: Mapped[str]
+    last_name: Mapped[str]
+    email: Mapped[Optional[str]]
+    phone: Mapped[Optional[str]]
+    comment: Mapped[Optional[str]]
+
+
+# --- SCHEMAS ---------------------------------------------------------
 
 class OwnerCreate(BaseModel):
     first_name: str
@@ -32,20 +46,7 @@ class OwnerRead(BaseModel):
         from_attributes = True
 
 
-# ---------------- MODELS ----------------
-
-class Owner(Base):
-    __tablename__ = "owners"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    first_name: Mapped[str]
-    last_name: Mapped[str]
-    email: Mapped[Optional[str]]
-    phone: Mapped[Optional[str]]
-    comment: Mapped[Optional[str]]
-
-
-# ---------------- ROUTES ----------------
+# --- ROUTES ----------------------------------------------------------
 
 router = APIRouter(prefix="/owners")
 

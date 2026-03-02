@@ -4,10 +4,10 @@ from sqladmin.authentication import AuthenticationBackend
 from sqlalchemy import select
 from starlette.requests import Request
 
-from hans.core.auth import User, hash_password, verify_password
+from hans.core.auth import verify_password, hash_password
 from hans.core.db import SessionLocal, engine
 from hans.core.settings import settings
-from hans.instruments import Instrument, Workstation
+from hans.users import User
 from hans.orders import Order, Result, ServiceRun, Specimen, TestRun
 from hans.owners import Owner
 from hans.patients import Patient, Species
@@ -15,6 +15,7 @@ from hans.services import ServiceCatalog
 from hans.specimens import SpecimenType
 from hans.tests import TestCatalog
 from hans.tubes import TubeType
+from hans.instruments import Instrument, Workstation
 
 
 # --- Auth -------------------------------------------------------------
@@ -63,7 +64,6 @@ class AdminAuth(AuthenticationBackend):
 
 
 # --- Views ------------------------------------------------------------
-# ModelView declarations for the admin console.
 
 class UserAdmin(ModelView, model=User):
     # Hide hashed passwords in list and details.

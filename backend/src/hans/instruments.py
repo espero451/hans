@@ -1,5 +1,4 @@
 from typing import Optional, List
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -7,9 +6,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import ForeignKey, String
 
-from hans.core.db import Base, get_db
-from hans.core.auth import get_current_user, User
 from hans.core.core import audit_log
+from hans.core.db import Base, get_db
+from hans.core.auth import get_current_user
+from hans.users import User
+
+
+# --- MODELS ----------------------------------------------------------
+
+class Instrument(Base):
+    __tablename__ = "instruments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    model: Mapped[Optional[str]]
+    location: Mapped[Optional[str]]
+
+
+class Workstation(Base):
+    __tablename__ = "workstations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    instrument_id: Mapped[Optional[int]] = mapped_column(ForeignKey("instruments.id"))
+    # Load instrument details for admin list rendering.
+    instrument = relationship("Instrument", lazy="joined")
 
 
 # --- SCHEMAS ---------------------------------------------------------
@@ -44,28 +66,6 @@ class WorkstationRead(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-# --- MODELS ----------------------------------------------------------
-
-class Instrument(Base):
-    __tablename__ = "instruments"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    code: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    model: Mapped[Optional[str]]
-    location: Mapped[Optional[str]]
-
-
-class Workstation(Base):
-    __tablename__ = "workstations"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    instrument_id: Mapped[Optional[int]] = mapped_column(ForeignKey("instruments.id"))
-    # Load instrument details for admin list rendering.
-    instrument = relationship("Instrument", lazy="joined")
 
 
 # --- ROUTES ----------------------------------------------------------

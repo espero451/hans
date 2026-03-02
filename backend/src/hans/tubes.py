@@ -7,12 +7,24 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from hans.core.db import Base, get_db
-from hans.core.auth import User, require_admin, require_staff_or_admin
 from hans.core.core import audit_log
+from hans.core.db import Base, get_db
+from hans.core.auth import require_admin, require_staff_or_admin
+from hans.users import User
 
 
-# ---------------- SCHEMAS ----------------
+# --- MODELS ----------------------------------------------------------
+
+class TubeType(Base):
+    __tablename__ = "tube_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+
+# --- SCHEMAS ---------------------------------------------------------
 
 class TubeTypeCreate(BaseModel):
     code: str
@@ -30,18 +42,7 @@ class TubeTypeRead(BaseModel):
         from_attributes = True
 
 
-# ---------------- MODELS ----------------
-
-class TubeType(Base):
-    __tablename__ = "tube_types"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    code: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-
-
-# ---------------- ROUTES ----------------
+# --- ROUTES ----------------------------------------------------------
 
 router = APIRouter(prefix="/tubes")
 

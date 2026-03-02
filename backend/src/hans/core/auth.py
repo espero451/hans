@@ -11,11 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import Mapped, mapped_column
 
-# Core application objects and settings (FastAPI app instance + env config)
-from hans.core.core import app
 from hans.core.settings import settings
-# Database session factory and SQLAlchemy declarative base
 from hans.core.db import get_db, Base, AsyncSession
+from hans.users import User, UserRead
 
 
 # Password hashing context (bcrypt). Used both to hash new passwords
@@ -39,7 +37,9 @@ LOGIN_BLOCK_SECONDS = 10
 # Tracks failed login attempts by username and IP.
 _login_failures = {}
 
-# Hash a plain-text password before storing it in the database.
+# ---------------------------------------------------------------------
+
+# # Hash a plain-text password before storing it in the database.
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
@@ -111,65 +111,6 @@ def _clear_login_failures(key: str) -> None:
     if key in _login_failures:
         del _login_failures[key]
 
-# Login endpoint: validates credentials and returns a bearer token.
-# OAuth2PasswordRequestForm provides "username" and "password" from the request body.
-@app.post("/auth/token")
-async def login(
-    request: Request,
-    form: OAuth2PasswordRequestForm = Depends(),
-    db: AsyncSession = Depends(get_db),
-) -> dict[str, str]:
-    # Apply in-memory throttling before hitting the database.
-    now_ts = time.time()
-    key = _login_key(form.username, request)
-    if _is_login_blocked(key, now_ts):
-        raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
-    result = await db.execute(select(User).where(User.username == form.username))
-    user = result.scalar_one_or_none()
-    if not user or not verify_password(form.password, user.hashed_password):
-        _record_login_failure(key, now_ts)
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    _clear_login_failures(key)
-    access_token = create_access_token(
-        {"sub": user.username},
-        timedelta(minutes=settings.access_token_expire_minutes),
-    )
-    refresh_token, refresh_jti = create_refresh_token(user.username)
-    user.refresh_jti = refresh_jti
-    await db.commit()
-    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
-
-
-# --- MODELS ----------------------------------------------------------
-
-# SQLAlchemy model for application users.
-# Stores credentials and role metadata for authentication and authorization.
-class User(Base):
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    username: Mapped[str] = mapped_column(unique=True)
-    email: Mapped[str]
-    hashed_password: Mapped[str]
-    role: Mapped[str]
-    # Stores current refresh token JTI (for rotation validation)
-    refresh_jti: Mapped[str | None] = mapped_column(
-        String(36),
-        nullable=True
-    )
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-
-# Public user data returned by auth endpoints.
-class UserOut(BaseModel):
-    id: int
-    username: str
-    email: str
-    role: str
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
 
 # --- DEPENDENCIES ----------------------------------------------------
 
@@ -197,6 +138,9 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="User not found")
     return user
 
+
+# --- Permissions -----------------------------------------------------
+
 # Enforce that the current user has an allowed role.
 def require_roles(*allowed_roles: str):
     async def _require(user: User = Depends(get_current_user)):
@@ -211,16 +155,48 @@ require_admin = require_roles(ROLE_ADMIN)
 require_staff_or_admin = require_roles(ROLE_ADMIN, ROLE_STAFF)
 
 
-# --- ROUTES ----------------------------------------------------------
-
-router = APIRouter()
+# --- SCHEMAS ---------------------------------------------------------
 
 # Refresh token request payload.
 class RefreshIn(BaseModel):
     refresh_token: str
 
+
+# --- ROUTES ----------------------------------------------------------
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Login endpoint: validates credentials and returns a bearer token.
+# OAuth2PasswordRequestForm provides "username" and "password" from the request body.
+@router.post("/token")
+async def login(
+    request: Request,
+    form: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    # Apply in-memory throttling before hitting the database.
+    now_ts = time.time()
+    key = _login_key(form.username, request)
+    if _is_login_blocked(key, now_ts):
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
+    result = await db.execute(select(User).where(User.username == form.username))
+    user = result.scalar_one_or_none()
+    if not user or not verify_password(form.password, user.hashed_password):
+        _record_login_failure(key, now_ts)
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    _clear_login_failures(key)
+    access_token = create_access_token(
+        {"sub": user.username},
+        timedelta(minutes=settings.access_token_expire_minutes),
+    )
+    refresh_token, refresh_jti = create_refresh_token(user.username)
+    user.refresh_jti = refresh_jti
+    await db.commit()
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+
 # Rotate refresh tokens and issue a new access token.
-@router.post("/auth/refresh")
+@router.post("/refresh")
 async def refresh_tokens(payload: RefreshIn, db: AsyncSession = Depends(get_db)) -> dict[str, str]:
     try:
         decoded = jwt.decode(
@@ -249,11 +225,7 @@ async def refresh_tokens(payload: RefreshIn, db: AsyncSession = Depends(get_db))
     await db.commit()
     return {"access_token": access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
 
-@router.get("/auth/me")
-async def read_current_user(current_user=Depends(get_current_user)):
-    return {
-        "id": current_user.id,
-        "username": current_user.username,
-        "email": current_user.email,
-        "role": current_user.role,
-    }
+
+@router.get("/me", response_model=UserRead)
+async def read_current_user(current_user: User = Depends(get_current_user)):
+    return current_user

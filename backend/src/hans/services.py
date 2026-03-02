@@ -7,11 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from hans.core.db import Base, get_db
-from hans.core.auth import User, require_admin, require_staff_or_admin
 from hans.core.core import audit_log
+from hans.core.auth import require_admin, require_staff_or_admin
+from hans.users import User
 
 
-# ---------------- MODELS ----------------
+# --- MODELS ----------------------------------------------------------
 
 class ServiceCatalogCreate(BaseModel):
     name: str
@@ -29,7 +30,7 @@ class ServiceCatalogRead(BaseModel):
         from_attributes = True
 
 
-# ---------------- SCHEMAS ----------------
+# --- SCHEMAS ---------------------------------------------------------
 
 class ServiceCatalog(Base):
     __tablename__ = "service_catalog"
@@ -40,7 +41,7 @@ class ServiceCatalog(Base):
     description: Mapped[Optional[str]]
 
 
-# ---------------- ROUTES ----------------
+# --- ROUTES ----------------------------------------------------------
 
 router = APIRouter(prefix="/services")
 

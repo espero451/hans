@@ -7,12 +7,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from hans.core.db import Base, get_db
-from hans.core.auth import User, require_admin, require_staff_or_admin
 from hans.core.core import audit_log
+from hans.core.db import Base, get_db
+from hans.core.auth import require_admin, require_staff_or_admin
+from hans.users import User
 
 
-# ---------------- MODELS ----------------
+# --- MODELS ----------------------------------------------------------
 
 class TestCatalogCreate(BaseModel):
     code: str
@@ -32,7 +33,7 @@ class TestCatalogRead(BaseModel):
         from_attributes = True
 
 
-# ---------------- SCHEMAS ----------------
+# --- SCHEMAS ---------------------------------------------------------
 
 class TestCatalog(Base):
     __tablename__ = "test_catalog"
@@ -46,7 +47,7 @@ class TestCatalog(Base):
     specimen_type = relationship("SpecimenType", lazy="joined")
 
 
-# ---------------- ROUTES ----------------
+# --- ROUTES ----------------------------------------------------------
 
 router = APIRouter(prefix="/tests")
 
