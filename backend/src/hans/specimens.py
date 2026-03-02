@@ -1,5 +1,5 @@
 from typing import Optional, List
-# from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import String, ForeignKey
 from sqlalchemy.exc import IntegrityError
@@ -9,7 +9,7 @@ from sqlalchemy.future import select
 
 from hans.core.core import audit_log
 from hans.core.db import Base, get_db
-# from hans.core.auth import require_admin, require_staff_or_admin
+from hans.core.auth import require_admin, require_staff_or_admin
 from hans.users import User
 
 
@@ -56,9 +56,14 @@ class SpecimenTypeRead(BaseModel):
 
 # --- ROUTES ----------------------------------------------------------
 
-# router = APIRouter(prefix="/specimens")
+router = APIRouter(prefix="/specimens", tags=["specimens"])
 
-# @router.get("/", response_model=List[SpecimenTypeRead])
-# async def get_specimens(db: AsyncSession = Depends(get_db), user: User = Depends(require_staff_or_admin)):
-#     result = await db.execute(select(SpecimenType).order_by(SpecimenType.id))
-#     return result.scalars().all()
+@router.get("/{id}", response_model=SpecimenTypeRead)
+async def get_specimen(id: int, db: AsyncSession = Depends(get_db), user: User = Depends(require_staff_or_admin)):
+    result = await db.execute(select(SpecimenType).where(SpecimenType.id == id))
+    specimen = result.scalar_one_or_none()
+
+    if specimen is None:
+        raise HTTPException(status_code=404, detail="Specimen not found")
+
+    return specimen

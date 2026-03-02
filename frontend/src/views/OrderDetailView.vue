@@ -18,6 +18,8 @@ const owner = ref<any>(null);
 const order = ref<any>(null);
 const tests = ref<any[]>([]);
 const services = ref<any[]>([]);
+const specimenTypes = ref<Record<number, any>>({});
+const tubeTypes = ref<Record<number, any>>({});
 const orderComment = ref("");
 const orderUrgency = ref("ROUTINE");
 const savingOrderComment = ref(false);
@@ -39,6 +41,8 @@ async function load() {
   order.value = orderRes.data;
   orderComment.value = order.value?.comment || "";
   orderUrgency.value = order.value?.urgency || "ROUTINE";
+  await loadSpecimenTypes(order.value?.specimens);
+  await loadTubeTypes();
 
   // patient loading
   if (order.value.patient_id) {
@@ -73,6 +77,52 @@ function testLabel(testCatalogId: number) {
 function serviceLabel(serviceCatalogId: number) {
   const service = services.value.find((s) => s.id === serviceCatalogId);
   return service ? service.name : serviceCatalogId;
+}
+
+async function loadSpecimenTypes(specimens?: any[]) {
+  if (!Array.isArray(specimens) || specimens.length === 0) return;
+  const ids = Array.from(
+    new Set(
+      specimens
+        .map((specimen) => specimen.specimen_type_id)
+        .filter((specimenTypeId: number) => Number.isFinite(specimenTypeId))
+    )
+  );
+  const missingIds = ids.filter((id) => !specimenTypes.value[id]);
+  if (missingIds.length === 0) return;
+  await Promise.all(
+    missingIds.map(async (specimenTypeId) => {
+      const res = await api.get(`/specimens/${specimenTypeId}`);
+      const data = Array.isArray(res.data) ? res.data[0] : res.data;
+      if (data) {
+        specimenTypes.value[specimenTypeId] = data;
+      }
+    })
+  );
+}
+
+async function loadTubeTypes() {
+  if (Object.keys(tubeTypes.value).length > 0) return;
+  const res = await api.get(`/tubes/`);
+  const tubeMap: Record<number, any> = {};
+  for (const tube of res.data || []) {
+    tubeMap[tube.id] = tube;
+  }
+  tubeTypes.value = tubeMap;
+}
+
+function specimenTypeCode(specimenTypeId: number) {
+  return specimenTypes.value[specimenTypeId]?.code || "N/A";
+}
+
+function specimenTypeName(specimenTypeId: number) {
+  return specimenTypes.value[specimenTypeId]?.name || "N/A";
+}
+
+function tubeTypeLabel(specimenTypeId: number) {
+  const tubeTypeId = specimenTypes.value[specimenTypeId]?.tube_type_id;
+  const tubeType = tubeTypeId ? tubeTypes.value[tubeTypeId] : null;
+  return tubeType?.name || tubeType?.code || "N/A";
 }
 
 function specimenStatus(specimenId: string) {
@@ -292,16 +342,21 @@ function cancelEditUrgency() {
       <template #content>
         <DataTable :value="order.specimens" dataKey="specimen_id">
           <Column field="specimen_id" header="Barcode" />
-          <!-- <Column header="Specimen Type">
+          <Column header="Code">
             <template #body="{ data }">
-              {{ data.specimen_types?.name || "-" }}
+              {{ specimenTypeCode(data.specimen_type_id) }}
+            </template>
+          </Column>
+          <Column header="Name">
+            <template #body="{ data }">
+              {{ specimenTypeName(data.specimen_type_id) }}
             </template>
           </Column>
           <Column header="Tube Type">
             <template #body="{ data }">
-              {{ data.specimen_types?.tube_type || "-" }}
+              {{ tubeTypeLabel(data.specimen_type_id) }}
             </template>
-          </Column> -->
+          </Column>
           <Column header="Status">
             <template #body="{ data }">
               <Tag :value="data.status" severity="info" />

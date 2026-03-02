@@ -7,7 +7,7 @@ from hans.patients import router as patients_router, species_router
 from hans.orders import router as orders_router
 from hans.tests import router as tests_router
 from hans.services import router as services_router
-# from hans.specimens import router as specimens_router
+from hans.specimens import router as specimens_router
 from hans.tubes import router as tubes_router
 from hans.instruments import router as instruments_router
 from hans.interfaces.dispatcher.api import router as dispatcher_router
@@ -26,7 +26,7 @@ app.include_router(orders_router, tags=["orders"])
 app.include_router(tests_router, tags=["tests"])
 app.include_router(services_router, tags=["services"])
 app.include_router(species_router, tags=["species"])
-# app.include_router(specimens_router, tags=["specimens"])
+app.include_router(specimens_router)
 app.include_router(tubes_router, tags=["tubes"])
 app.include_router(instruments_router, tags=["instruments"])
 app.include_router(dispatcher_router, tags=["dispatcher"])
