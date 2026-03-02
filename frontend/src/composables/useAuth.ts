@@ -1,5 +1,5 @@
 import { ref } from "vue"
-import { getCurrentUser } from "../api/auth"
+import { getCurrentUser, logout } from "../api/auth"
 
 const user = ref<any | null>(null)
 
@@ -23,6 +23,7 @@ export function useAuth() {
       user.value = currentUser
       return currentUser
     } catch (err) {
+      logout()
       user.value = null
       throw err
     }
