@@ -7,7 +7,6 @@ import Card from "primevue/card";
 import DataTable from "primevue/datatable";
 import Column from "primevue/column";
 import Tag from "primevue/tag";
-import Divider from "primevue/divider";
 import InputText from "primevue/inputtext";
 import Textarea from "primevue/textarea";
 import Dropdown from "primevue/dropdown";
@@ -376,8 +375,6 @@ function cancelEditUrgency() {
       </template>
     </Card>
 
-    <Divider />
-
     <Card v-if="order?.test_runs?.length">
       <template #title>Test Runs & Results</template>
       <template #content>
@@ -521,7 +518,7 @@ function cancelEditUrgency() {
               </tr>
               <tr v-if="!isLastRun(index, order?.test_runs)">
                 <td colspan="4">
-                  <Divider class="my-2" />
+                  &nbsp;
                 </td>
               </tr>
             </template>
