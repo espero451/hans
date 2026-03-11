@@ -19,6 +19,9 @@ from hans.patients import Patient
 from hans.tests import TestCatalog
 
 from ..config_reader import InterfaceConfig
+from ..handlers.message_router import MessageRouter
+from ..handlers.query_processor import QueryProcessor
+from ..handlers.result_processor import ResultProcessor
 from ..server import ListenerSpec, run_listeners
 from ..translation import TranslationTable
 
@@ -242,7 +245,20 @@ def _validate_astm_mapping(raw: dict, config_path: Path, handler_name: str) -> N
 def _import_handler_module(handler_name: str):
     module_path = handler_name
     if "." not in handler_name:
-        module_path = f"hans.interfaces.handlers.{handler_name}"
+        # Prefer protocol adapters and fall back to legacy handler path.
+        candidates = [
+            f"hans.interfaces.protocols.{handler_name}",
+            f"hans.interfaces.handlers.{handler_name}",
+        ]
+        for candidate in candidates:
+            try:
+                return importlib.import_module(candidate)
+            except ModuleNotFoundError as exc:
+                # Ignore missing candidate module, but surface nested import errors.
+                if exc.name != candidate:
+                    raise
+                continue
+        module_path = candidates[0]
     return importlib.import_module(module_path)
 
 
@@ -440,8 +456,23 @@ async def _mark_status(test_run_ids: list[int], status: str, skip_if: str | None
 
 
 def _make_connection_handler(state: InterfaceState, dispatcher: Dispatcher) -> Callable[..., Awaitable[None]]:
+    message_router = None
+    if _is_astm_handler(state.handler_name):
+        query_processor = QueryProcessor(dispatcher, state.config)
+        result_processor = ResultProcessor(dispatcher, state.config)
+        message_router = MessageRouter(query_processor, result_processor)
+
     async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        session = state.handler.AstmSession(reader, writer, state.config, dispatcher)
+        if message_router is not None:
+            session = state.handler.AstmSession(
+                reader,
+                writer,
+                state.config,
+                dispatcher,
+                message_router,
+            )
+        else:
+            session = state.handler.AstmSession(reader, writer, state.config, dispatcher)
         await session.run()
     return _handle
 

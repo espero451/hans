@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Iterable, Protocol
 
 from ..config_reader import InterfaceConfig
+from ..dom import QueryRequested, QueryResponsePrepared, ResultsReceived
 
 
 # --- Constants --------------------------------------------------------
@@ -140,13 +141,6 @@ class ResultPayload:
 
 # --- Protocols --------------------------------------------------------
 
-class QueryContextLike(Protocol):
-    specimen_id: str
-    patient_id: str | None
-    patient_name: str | None
-    test_codes: list[str]
-    test_run_ids: list[int]
-
 
 class AstmDispatcher(Protocol):
     async def log_raw_in(self, interface_code: str, raw: str) -> None:
@@ -171,17 +165,16 @@ class AstmDispatcher(Protocol):
     ) -> None:
         ...
 
-    async def load_query_contexts(
-        self, interface_code: str, barcodes: list[str]
-    ) -> list[QueryContextLike]:
+class DomainMessageRouter(Protocol):
+    async def handle_query(
+        self, message: QueryRequested
+    ) -> QueryResponsePrepared | None:
         ...
 
-    async def store_results(
-        self, interface_code: str, payloads: list[ResultPayload]
-    ) -> list[int]:
+    async def handle_results(self, message: ResultsReceived) -> None:
         ...
 
-    async def mark_sent(self, test_run_ids: list[int]) -> None:
+    async def handle_query_sent(self, message: QueryResponsePrepared) -> None:
         ...
 
 
@@ -469,11 +462,13 @@ class AstmSession:
         writer: asyncio.StreamWriter,
         config: InterfaceConfig,
         dispatcher: AstmDispatcher,
+        message_router: DomainMessageRouter,
     ) -> None:
         self._reader = reader
         self._writer = writer
         self._config = config
         self._dispatcher = dispatcher
+        self._message_router = message_router
         self._delimiters = resolve_delimiters(config.delimiters)
 
         self._state = "idle"
@@ -666,117 +661,26 @@ class AstmSession:
                 barcode_indexes,
                 component_last,
             )
-            await self._dispatcher.log_event(
-                interface_code=self._config.interface_code,
-                peer=peer,
-                direction="IN",
-                message_type="QUERY",
-                stage="DISPATCHED",
-                barcodes=barcodes,
-                test_run_ids=[],
-            )
-            await self._dispatcher.log_interface(
-                self._config.interface_code,
-                "INFO",
-                f"query.received barcodes={_format_csv(barcodes)}",
-            )
-            if not barcodes:
-                await self._dispatcher.log_event(
-                    interface_code=self._config.interface_code,
-                    peer=peer,
-                    direction="IN",
-                    message_type="QUERY",
-                    stage="PARSED",
-                    barcodes=[],
-                    test_run_ids=[],
-                )
-                await self._dispatcher.log_event(
-                    interface_code=self._config.interface_code,
-                    peer=peer,
-                    direction="IN",
-                    message_type="QUERY",
-                    stage="REJECTED",
-                    barcodes=[],
-                    test_run_ids=[],
-                    reason="missing_barcode",
-                )
-                await self._dispatcher.log_interface(
-                    self._config.interface_code,
-                    "INFO",
-                    "query.rejected reason=missing_barcode",
-                )
+            query_message = QueryRequested(peer=peer, barcodes=barcodes)
+            response_message = await self._message_router.handle_query(query_message)
+            if not response_message:
                 return
 
-            contexts = await self._dispatcher.load_query_contexts(
-                self._config.interface_code, barcodes
-            )
-            test_run_ids = [
-                run_id for context in contexts for run_id in context.test_run_ids if run_id
-            ]
-            tests_count = _count_tests(contexts)
-            await self._dispatcher.log_event(
-                interface_code=self._config.interface_code,
-                peer=peer,
-                direction="IN",
-                message_type="QUERY",
-                stage="PARSED",
-                barcodes=barcodes,
-                test_run_ids=test_run_ids,
-            )
-            await self._dispatcher.log_interface(
-                self._config.interface_code,
-                "INFO",
-                (
-                    "query.context_loaded "
-                    f"barcodes={_format_csv(barcodes)} "
-                    f"test_run_ids={_format_csv(test_run_ids)} "
-                    f"tests={tests_count}"
-                ),
-            )
-            if not contexts:
-                await self._dispatcher.log_event(
-                    interface_code=self._config.interface_code,
-                    peer=peer,
-                    direction="IN",
-                    message_type="QUERY",
-                    stage="REJECTED",
-                    barcodes=barcodes,
-                    test_run_ids=[],
-                    reason="specimen_not_found",
-                )
-                await self._dispatcher.log_interface(
-                    self._config.interface_code,
-                    "INFO",
-                    "query.rejected reason=specimen_not_found",
-                )
-                return
-
-            response_contexts = [
-                QueryResponseContext(
-                    specimen_id=context.specimen_id,
-                    test_codes=context.test_codes,
-                    patient_id=context.patient_id,
-                    patient_name=context.patient_name,
-                )
-                for context in contexts
-            ]
+            response_contexts = _query_response_contexts(response_message.contexts)
             response = build_query_response(
                 response_contexts,
                 message.delimiters,
                 self._config.response.include_patient,
                 mapping=mapping,
             )
-            await self._dispatcher.log_interface(
-                self._config.interface_code,
-                "INFO",
-                (
-                    "response.built "
-                    f"barcodes={_format_csv(barcodes)} "
-                    f"test_run_ids={_format_csv(test_run_ids)} "
-                    f"tests={tests_count}"
-                ),
+            was_sent = await self._send_message(
+                response,
+                response_message.barcodes,
+                response_message.test_run_ids,
+                response_message.peer,
             )
-            await self._send_message(response, barcodes, test_run_ids, peer)
+            if was_sent:
+                await self._message_router.handle_query_sent(response_message)
             return
 
         payloads = parse_results(
@@ -786,74 +690,11 @@ class AstmSession:
             specimen_component_last,
             result_fields=result_fields,
         )
-        barcodes = [payload.specimen_id for payload in payloads]
-        await self._dispatcher.log_event(
-            interface_code=self._config.interface_code,
-            peer=peer,
-            direction="IN",
-            message_type="RESULT",
-            stage="DISPATCHED",
-            barcodes=barcodes,
-            test_run_ids=[],
+        results_message = ResultsReceived(
+            peer,
+            [_result_payload_as_dom(payload) for payload in payloads],
         )
-        await self._dispatcher.log_interface(
-            self._config.interface_code,
-            "INFO",
-            f"results.parsed barcodes={_format_csv(barcodes)} results={len(payloads)}",
-        )
-        if not payloads:
-            await self._dispatcher.log_event(
-                interface_code=self._config.interface_code,
-                peer=peer,
-                direction="IN",
-                message_type="RESULT",
-                stage="PARSED",
-                barcodes=barcodes,
-                test_run_ids=[],
-            )
-            await self._dispatcher.log_event(
-                interface_code=self._config.interface_code,
-                peer=peer,
-                direction="IN",
-                message_type="RESULT",
-                stage="REJECTED",
-                barcodes=barcodes,
-                test_run_ids=[],
-                reason="no_results",
-            )
-            await self._dispatcher.log_interface(
-                self._config.interface_code,
-                "INFO",
-                "results.rejected reason=no_results",
-            )
-            return
-
-        test_run_ids = await self._dispatcher.store_results(
-            self._config.interface_code, payloads
-        )
-        await self._dispatcher.log_event(
-            interface_code=self._config.interface_code,
-            peer=peer,
-            direction="IN",
-            message_type="RESULT",
-            stage="PARSED",
-            barcodes=barcodes,
-            test_run_ids=test_run_ids,
-        )
-        await self._dispatcher.log_interface(
-            self._config.interface_code,
-            "INFO",
-            (
-                "results.stored "
-                f"test_run_ids={_format_csv(test_run_ids)} "
-                f"results={len(payloads)}"
-            ),
-        )
-        await self._dispatcher.log_interface(
-            self._config.interface_code,
-            "INFO",
-            f"status.received test_run_ids={_format_csv(test_run_ids)}",
-        )
+        await self._message_router.handle_results(results_message)
 
     async def _send_message(
         self,
@@ -861,10 +702,10 @@ class AstmSession:
         barcodes: list[str],
         test_run_ids: list[int],
         peer: str,
-    ) -> None:
+    ) -> bool:
         frames = frame_message(message, self._config.frame.size)
         if not frames:
-            return
+            return False
 
         raw = message.serialize(include_trailing_record_sep=True)
         await self._dispatcher.log_raw_out(self._config.interface_code, raw)
@@ -895,7 +736,7 @@ class AstmSession:
                 "INFO",
                 "response.failed reason=enq_failed",
             )
-            return
+            return False
 
         for frame in frames:
             await self._send_bytes(frame)
@@ -915,7 +756,7 @@ class AstmSession:
                     "INFO",
                     "response.failed reason=frame_failed",
                 )
-                return
+                return False
 
         await self._send_byte(EOT)
         await self._dispatcher.log_event(
@@ -936,12 +777,7 @@ class AstmSession:
                 f"test_run_ids={_format_csv(test_run_ids)}"
             ),
         )
-        await self._dispatcher.mark_sent(test_run_ids)
-        await self._dispatcher.log_interface(
-            self._config.interface_code,
-            "INFO",
-            f"status.sent test_run_ids={_format_csv(test_run_ids)}",
-        )
+        return True
 
     async def _expect_ack(self, timeout: float = 5.0) -> bool:
         try:
@@ -1017,9 +853,53 @@ def _format_csv(items: Iterable[object]) -> str:
     return ",".join(str(item) for item in items if item)
 
 
-def _count_tests(contexts: Iterable[QueryContextLike]) -> int:
-    # Count tests across contexts.
-    return sum(len(context.test_codes) for context in contexts)
+def _query_response_contexts(
+    contexts: list[dict[str, object]],
+) -> list[QueryResponseContext]:
+    # Convert domain dict payloads to ASTM response context records.
+    response_contexts = []
+    for context in contexts:
+        specimen_id = str(context.get("specimen_id", "")).strip()
+        if not specimen_id:
+            continue
+
+        raw_codes = context.get("test_codes", [])
+        if isinstance(raw_codes, list):
+            test_codes = [str(code).strip() for code in raw_codes if str(code).strip()]
+        else:
+            one_code = str(raw_codes).strip()
+            test_codes = [one_code] if one_code else []
+
+        response_contexts.append(
+            QueryResponseContext(
+                specimen_id=specimen_id,
+                test_codes=test_codes,
+                patient_id=_optional_str(context.get("patient_id")),
+                patient_name=_optional_str(context.get("patient_name")),
+            )
+        )
+    return response_contexts
+
+
+def _result_payload_as_dom(payload: ResultPayload) -> dict[str, object]:
+    # Convert ASTM result payloads to protocol-agnostic domain dicts.
+    return {
+        "specimen_id": payload.specimen_id,
+        "test_code": payload.test_code,
+        "value": payload.value,
+        "units": payload.units,
+        "flags": payload.flags,
+        "completed_at": payload.completed_at,
+        "verified": payload.verified,
+    }
+
+
+def _optional_str(value: object) -> str | None:
+    # Normalize optional values to stripped strings or None.
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 # --- Parsing Internals ------------------------------------------------

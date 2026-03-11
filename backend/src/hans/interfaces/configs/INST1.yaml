@@ -1,7 +1,7 @@
 # Interface identifier used in logs and trace paths.
 interface_code: "INST1"
 
-# Module name used to import the interface handler (`hans.interfaces.handlers.astm`).
+# Module name used to import the protocol adapter (`hans.interfaces.protocols.astm`).
 handler: astm
 
 server:
