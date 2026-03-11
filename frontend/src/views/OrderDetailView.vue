@@ -199,6 +199,11 @@ async function collectSpecimen(specimenId: string) {
   await load();
 }
 
+async function receiveSpecimen(specimenId: string) {
+  await api.patch(`/orders/barcode/${specimenId}/receive`);
+  await load();
+}
+
 // Archive the order and update only the archived flag
 async function archiveOrder(id: number) {
   const res = await api.patch(`/orders/${id}/archive`);
@@ -364,10 +369,17 @@ function cancelEditUrgency() {
           <Column header="Actions">
             <template #body="{ data }">
               <Button
+                v-if="data.status === 'COLLECTED' || data.status === 'RECEIVED'"
+                label="Receive"
+                size="small"
+                @click="receiveSpecimen(data.specimen_id)"
+                :disabled="data.status === 'RECEIVED'"
+              />
+              <Button
+                v-else
                 label="Collect"
                 size="small"
                 @click="collectSpecimen(data.specimen_id)"
-                :disabled="data.status === 'COLLECTED'"
               />
             </template>
           </Column>

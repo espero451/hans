@@ -142,6 +142,24 @@ async def collect_specimen(specimen_id: str, db: AsyncSession) -> SpecimenRead:
     return SpecimenRead.model_validate(specimen)
 
 
+async def receive_specimen(specimen_id: str, db: AsyncSession) -> SpecimenRead:
+    specimen = await fetch_specimen(specimen_id, db)
+    if not specimen:
+        raise HTTPException(404, "Specimen not found")
+    if specimen.status == "CANCELED":
+        raise HTTPException(400, "Specimen is canceled")
+    if specimen.status == "RECEIVED":
+        return SpecimenRead.model_validate(specimen)
+    if specimen.status != "COLLECTED":
+        raise HTTPException(400, "Specimen must be collected first")
+
+    specimen.status = "RECEIVED"
+    specimen.received_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(specimen)
+    return SpecimenRead.model_validate(specimen)
+
+
 # --- RESULT FLOWS -----------------------------------------------------
 
 async def create_result(test_run_id: int, data: ResultCreate, db: AsyncSession) -> ResultRead:

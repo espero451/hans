@@ -24,6 +24,7 @@ from .services import (
     create_result as create_result_service,
     get_patient_orders as get_patient_orders_service,
     load_order,
+    receive_specimen as receive_specimen_service,
     toggle_order_archive,
     toggle_result_verify,
     update_order as update_order_service,
@@ -74,6 +75,17 @@ async def collect_specimen(
 ) -> SpecimenRead:
     specimen = await collect_specimen_service(specimen_id, db)
     audit_log(user.id, f"Specimen collected {specimen_id}")
+    return specimen
+
+
+@router.patch("/orders/barcode/{specimen_id}/receive", response_model=SpecimenRead)
+async def receive_specimen(
+    specimen_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> SpecimenRead:
+    specimen = await receive_specimen_service(specimen_id, db)
+    audit_log(user.id, f"Specimen received {specimen_id}")
     return specimen
 
 
