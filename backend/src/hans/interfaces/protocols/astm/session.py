@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -76,6 +77,7 @@ async def handle_astm_message(
 ) -> HandleResult:
     message = parse_message(raw, record_sep=delimiters.record)
     message_type = classify_records(message.records)
+
     await dispatcher.log_interface(
         config.interface_code,
         "INFO",
@@ -147,6 +149,22 @@ async def handle_astm_message(
             component_last,
         )
         query_message = QueryRequested(peer=peer, barcodes=barcodes)
+
+        # Trace query_message
+        await dispatcher.log_interface(
+            config.interface_code,
+            "INFO",
+            "dom.query_requested payload="
+            + json.dumps(
+                {
+                    "peer": query_message.peer,
+                    "barcodes": query_message.barcodes,
+                },
+                ensure_ascii=False,
+                default=str,
+            ),
+        )
+
         response_message = await router.handle_query(query_message)
         if not response_message:
             return HandleResult()
@@ -177,6 +195,21 @@ async def handle_astm_message(
         peer,
         [result_payload_as_dom(payload) for payload in payloads],
     )
+    # Trace results_message DOM
+    await dispatcher.log_interface(
+        config.interface_code,
+        "INFO",
+        "dom.results_received payload="
+        + json.dumps(
+            {
+                "peer": results_message.peer,
+                "results": results_message.results,
+            },
+            ensure_ascii=False,
+            default=str,  # importand for datetime in completed_at
+        ),
+    )
+
     await router.handle_results(results_message)
     return HandleResult()
 
