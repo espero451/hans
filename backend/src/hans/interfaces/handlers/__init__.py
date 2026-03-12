@@ -1,1 +1,1 @@
-"""Protocol-specific interface handlers (ASTM, HL7, fixed, etc.)."""
+"""Domain-level message handlers for interface workflows."""
