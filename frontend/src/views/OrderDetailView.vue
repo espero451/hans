@@ -26,6 +26,7 @@ const savingOrderUrgency = ref(false);
 const editingUrgency = ref(false);
 const editingResultId = ref<number | null>(null);
 const editResult = ref<any>({});
+const printingSpecimens = ref<Record<string, boolean>>({});
 const urgencyOptions = [
   { label: "Routine", value: "ROUTINE" },
   { label: "Urgent", value: "URGENT" },
@@ -212,6 +213,16 @@ async function receiveSpecimen(specimenId: string) {
   await load();
 }
 
+async function printSpecimen(specimenId: string) {
+  printingSpecimens.value[specimenId] = true;
+  try {
+    await api.patch(`/orders/barcode/${specimenId}/print`);
+    await load();
+  } finally {
+    printingSpecimens.value[specimenId] = false;
+  }
+}
+
 // Archive the order and update only the archived flag
 async function archiveOrder(id: number) {
   const res = await api.patch(`/orders/${id}/archive`);
@@ -372,19 +383,28 @@ function cancelEditUrgency() {
           </Column>
           <Column header="Actions">
             <template #body="{ data }">
-              <Button
-                v-if="data.status === 'COLLECTED' || data.status === 'RECEIVED'"
-                label="Receive"
-                size="small"
-                @click="receiveSpecimen(data.specimen_id)"
-                :disabled="data.status === 'RECEIVED'"
-              />
-              <Button
-                v-else
-                label="Collect"
-                size="small"
-                @click="collectSpecimen(data.specimen_id)"
-              />
+              <div class="flex gap-2">
+                <Button
+                  v-if="data.status === 'COLLECTED' || data.status === 'RECEIVED'"
+                  label="Receive"
+                  size="small"
+                  @click="receiveSpecimen(data.specimen_id)"
+                  :disabled="data.status === 'RECEIVED'"
+                />
+                <Button
+                  v-else
+                  label="Collect"
+                  size="small"
+                  @click="collectSpecimen(data.specimen_id)"
+                />
+                <Button
+                  label="Print ZPL"
+                  size="small"
+                  severity="secondary"
+                  :loading="printingSpecimens[data.specimen_id]"
+                  @click="printSpecimen(data.specimen_id)"
+                />
+              </div>
             </template>
           </Column>
         </DataTable>

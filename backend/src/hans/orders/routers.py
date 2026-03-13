@@ -19,12 +19,13 @@ from .schemas import (
     SpecimenRead,
 )
 from .services import (
-    collect_specimen as collect_specimen_service,
     create_order as create_order_service,
+    collect_specimen as collect_specimen_service,
+    receive_specimen as receive_specimen_service,
+    print_specimen as print_specimen_service,
     create_result as create_result_service,
     get_patient_orders as get_patient_orders_service,
     load_order,
-    receive_specimen as receive_specimen_service,
     toggle_order_archive,
     toggle_result_verify,
     update_order as update_order_service,
@@ -55,6 +56,29 @@ async def get_order(
     user: User = Depends(get_current_user),
 ) -> OrderRead:
     return await load_order(order_id, db)
+
+
+@router.patch("/orders/{order_id}", response_model=OrderRead)
+async def update_order(
+    order_id: int,
+    data: OrderUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> OrderRead:
+    order = await update_order_service(order_id, data, db)
+    audit_log(user.id, f"Updated order {order_id}")
+    return order
+
+
+@router.patch("/orders/{order_id}/archive", response_model=OrderArchivedStatusRead)
+async def archive_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> OrderArchivedStatusRead:
+    order = await toggle_order_archive(order_id, db)
+    audit_log(user.id, f"Order {order_id} archived")
+    return order
 
 
 @router.get("/patients/{patient_id}/orders", response_model=List[OrderRead])
@@ -89,27 +113,15 @@ async def receive_specimen(
     return specimen
 
 
-@router.patch("/orders/{order_id}/archive", response_model=OrderArchivedStatusRead)
-async def archive_order(
-    order_id: int,
+@router.patch("/orders/barcode/{specimen_id}/print", response_model=SpecimenRead)
+async def print_specimen(
+    specimen_id: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> OrderArchivedStatusRead:
-    order = await toggle_order_archive(order_id, db)
-    audit_log(user.id, f"Order {order_id} archived")
-    return order
-
-
-@router.patch("/orders/{order_id}", response_model=OrderRead)
-async def update_order(
-    order_id: int,
-    data: OrderUpdate,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-) -> OrderRead:
-    order = await update_order_service(order_id, data, db)
-    audit_log(user.id, f"Updated order {order_id}")
-    return order
+) -> SpecimenRead:
+    specimen = await print_specimen_service(specimen_id, db)
+    audit_log(user.id, f"Specimen {specimen_id} barcode printed")
+    return specimen
 
 
 @router.post("/test-runs/{test_run_id}/results", response_model=ResultRead)

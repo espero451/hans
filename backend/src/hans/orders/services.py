@@ -1,8 +1,13 @@
 from datetime import datetime
+import asyncio
 from typing import Dict, List
 
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from hans.core.settings import settings
+from hans.interfaces.printers import send_zpl
+from hans.tools.barcodes import generate_zpl_label
 
 from .models import Order, Result, ServiceRun, Specimen, TestRun
 from .repositories import (
@@ -155,6 +160,31 @@ async def receive_specimen(specimen_id: str, db: AsyncSession) -> SpecimenRead:
 
     specimen.status = "RECEIVED"
     specimen.received_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(specimen)
+    return SpecimenRead.model_validate(specimen)
+
+
+async def print_specimen(specimen_id: str, db: AsyncSession) -> SpecimenRead:
+    specimen = await fetch_specimen(specimen_id, db)
+    if not specimen:
+        raise HTTPException(404, "Specimen not found")
+
+    # Generate a printer-ready barcode label for the specimen.
+    zpl_label = generate_zpl_label(specimen.specimen_id)
+    try:
+        # Run socket I/O in a worker thread to avoid blocking the event loop.
+        await asyncio.to_thread(
+            send_zpl,
+            zpl_label,
+            settings.barcode_printer_ip,
+            settings.barcode_printer_port,
+            settings.barcode_printer_timeout,
+        )
+    except OSError as exc:
+        raise HTTPException(502, f"Barcode printer is unavailable: {exc}") from exc
+
+    # specimen.printed_at = datetime.utcnow()
     await db.commit()
     await db.refresh(specimen)
     return SpecimenRead.model_validate(specimen)

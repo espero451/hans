@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # --- Settings ---------------------------------------------------------
@@ -9,9 +9,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 540  # 9 hours
     refresh_token_expire_minutes: int = 10080  # 7 days
+    barcode_printer_ip: str = "127.0.0.1"
+    barcode_printer_port: int = 9100
+    barcode_printer_timeout: float = 3.0
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 # Load env-backed settings once at import time.
