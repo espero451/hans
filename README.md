@@ -266,27 +266,6 @@ docker compose exec backend python3 -m hans.tools.seed_admin
 http://localhost:8080/login
 ```
 
-## Tests
-
-### Run tests in Docker (recommended)
-
-Run all tests:
-```
-docker compose exec backend sh -lc "cd /app/backend && PYTHONPATH=src pytest -q"
-```
-
-Run a single test file:
-```
-docker compose exec backend sh -lc "cd /app/backend && PYTHONPATH=src pytest -q tests/unit/test_orders_print_specimen.py"
-```
-
-### Run tests locally (without Docker)
-
-From the `backend` directory:
-```
-PYTHONPATH=src pytest -q
-```
-
 ### URLs
 
 - Backend: `http://localhost:8000`
@@ -342,6 +321,20 @@ Dispatcher starts automatically with the backend.
 
 - Audit logs: `live/audit/YYYY-MM-DD.log`
 - Instrument traces: `live/instruments/<interface>/<YYYY-MM-DD>/`
+
+## Tests
+
+### Run tests in Docker
+
+Run all tests:
+```
+docker compose exec backend sh -lc "cd /app/backend && PYTHONPATH=src pytest -q"
+```
+
+Run a single test file:
+```
+docker compose exec backend sh -lc "cd /app/backend && PYTHONPATH=src pytest -q tests/unit/test_orders_print_specimen.py"
+```
 
 # Roadmap
 
