@@ -16,6 +16,11 @@ class QueryContextLike(Protocol):
     test_run_ids: list[int]
 
 
+class QueryLoadResultLike(Protocol):
+    contexts: list[QueryContextLike]
+    reject_reason: str | None
+
+
 class DispatcherLike(Protocol):
     async def log_interface(self, interface_code: str, level: str, message: str) -> None:
         ...
@@ -35,7 +40,7 @@ class DispatcherLike(Protocol):
 
     async def load_query_contexts(
         self, interface_code: str, barcodes: list[str]
-    ) -> list[QueryContextLike]:
+    ) -> QueryLoadResultLike:
         ...
 
     async def mark_sent(self, test_run_ids: list[int]) -> None:
@@ -95,9 +100,10 @@ class QueryProcessor:
             )
             return
 
-        contexts = await self._dispatcher.load_query_contexts(
+        query_load = await self._dispatcher.load_query_contexts(
             self._config.interface_code, barcodes
         )
+        contexts = query_load.contexts
         test_run_ids = [
             run_id for context in contexts for run_id in context.test_run_ids if run_id
         ]
@@ -122,6 +128,7 @@ class QueryProcessor:
             ),
         )
         if not contexts:
+            reject_reason = query_load.reject_reason or "specimen_not_found"
             await self._dispatcher.log_event(
                 interface_code=self._config.interface_code,
                 peer=message.peer,
@@ -130,13 +137,19 @@ class QueryProcessor:
                 stage="REJECTED",
                 barcodes=barcodes,
                 test_run_ids=[],
-                reason="specimen_not_found",
+                reason=reject_reason,
             )
             await self._dispatcher.log_interface(
                 self._config.interface_code,
                 "INFO",
-                "query.rejected reason=specimen_not_found",
+                f"query.rejected reason={reject_reason}",
             )
+            if reject_reason == "specimen_not_received":
+                await self._dispatcher.log_interface(
+                    self._config.interface_code,
+                    "INFO",
+                    "Specimen status is not RECEIVED",
+                )
             return
 
         response_contexts = []

@@ -50,6 +50,12 @@ class QueryContext:
 
 
 @dataclass(frozen=True)
+class QueryLoadResult:
+    contexts: list[QueryContext]
+    reject_reason: str | None = None
+
+
+@dataclass(frozen=True)
 class InterfaceState:
     config: InterfaceConfig
     handler: object
@@ -147,7 +153,7 @@ class Dispatcher:
 
     async def load_query_contexts(
         self, interface_code: str, barcodes: list[str]
-    ) -> list[QueryContext]:
+    ) -> QueryLoadResult:
         # Load context for barcodes.
         state = self._state(interface_code)
         return await _load_query_contexts(barcodes, state.translation)
@@ -297,21 +303,21 @@ def _collect_configs(paths: Iterable[str], configs_dir: Path | None) -> list[Pat
 async def _load_query_contexts(
     barcodes: list[str],
     translation: TranslationTable,
-) -> list[QueryContext]:
+) -> QueryLoadResult:
     # Load context for query barcodes.
     contexts: list[QueryContext] = []
     for barcode in barcodes:
-        context = await _load_one_context(barcode, translation)
+        context, reject_reason = await _load_one_context(barcode, translation)
         if not context:
-            return []
+            return QueryLoadResult(contexts=[], reject_reason=reject_reason)
         contexts.append(context)
-    return contexts
+    return QueryLoadResult(contexts=contexts)
 
 
 async def _load_one_context(
     barcode: str,
     translation: TranslationTable,
-) -> QueryContext | None:
+) -> tuple[QueryContext | None, str | None]:
     async with SessionLocal() as session:
         result = await session.execute(
             select(Order, Specimen, Patient)
@@ -321,8 +327,10 @@ async def _load_one_context(
         )
         row = result.first()
         if not row:
-            return None
+            return None, "specimen_not_found"
         order, specimen, patient = row
+        if specimen.status != "RECEIVED":
+            return None, "specimen_not_received"
 
         runs_result = await session.execute(
             select(TestRun, TestCatalog)
@@ -340,12 +348,15 @@ async def _load_one_context(
 
         patient_id = str(patient.id) if patient else None
         patient_name = patient.name if patient else None
-        return QueryContext(
-            specimen_id=specimen.specimen_id,
-            patient_id=patient_id,
-            patient_name=patient_name,
-            test_codes=test_codes,
-            test_run_ids=test_run_ids,
+        return (
+            QueryContext(
+                specimen_id=specimen.specimen_id,
+                patient_id=patient_id,
+                patient_name=patient_name,
+                test_codes=test_codes,
+                test_run_ids=test_run_ids,
+            ),
+            None,
         )
 
 
