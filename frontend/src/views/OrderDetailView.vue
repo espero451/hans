@@ -137,6 +137,14 @@ function urgencySeverity(urgency?: string) {
   return "secondary";
 }
 
+function statusSeverity(status?: string): string {
+  if (status === "RECEIVED") return "success";
+  if (status === "SENT") return "warning";
+  if (status === "COLLECTED") return "warning";
+  if (status === "NEW") return "info";
+  return "secondary";
+}
+
 function formatDateTime(value?: string | Date | null) {
   if (!value) return "N/A";
   const date = typeof value === "string" ? new Date(value) : value;
@@ -258,11 +266,6 @@ function cancelEditUrgency() {
           :severity="order.archived ? 'secondary' : 'success'"
           class="ml-2"
         />
-        <!--<Tag
-          :value="order.urgency || 'ROUTINE'"
-          :severity="urgencySeverity(order.urgency)"
-          class="ml-2"
-        />-->
         <Button
           :label="order.archived ? 'Unarchive' : 'Archive'"
           size="small"
@@ -363,7 +366,8 @@ function cancelEditUrgency() {
           </Column>
           <Column header="Status">
             <template #body="{ data }">
-              <Tag :value="data.status" severity="info" />
+              <Tag :value="data.status" :severity="statusSeverity(data.status)" />
+
             </template>
           </Column>
           <Column header="Actions">
@@ -404,8 +408,8 @@ function cancelEditUrgency() {
               <tr>
                 <td>{{ testLabel(run.test_catalog_id) }}</td>
                 <td>{{ run.specimen_id }}</td>
-                <td><Tag :value="run.status" severity="warning" /></td>
-                <td><Tag :value="specimenStatus(run.specimen_id)" severity="info" /></td>
+                <td><Tag :value="run.status" :severity="statusSeverity(run.status)" /></td>
+                <td><Tag :value="specimenStatus(run.specimen_id)" :severity="statusSeverity(specimenStatus(run.specimen_id))" /></td>
               </tr>
               <tr>
                 <td colspan="4">
@@ -558,4 +562,13 @@ function cancelEditUrgency() {
     </Card>
 
   </div>
+
 </template>
+
+<style scoped>
+.tag-yellow {
+  background: #fde047 !important;
+  border-color: #eab308 !important;
+  color: #713f12 !important;
+}
+</style>
