@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from hans.core.schemas import ORMModel
+
 
 # --- SCHEMAS ----------------------------------------------------------
 
@@ -10,11 +12,8 @@ class UserCreate(BaseModel):
     password: str
 
 
-class UserRead(BaseModel):
+class UserRead(ORMModel):
     id: int
     username: str
     email: str
     role: str
-
-    class Config:
-        from_attributes = True

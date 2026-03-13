@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
+from hans.core.schemas import ORMModel
+
 from .models import OrderUrgency
 
 
@@ -22,7 +24,7 @@ class OrderUpdate(BaseModel):
     urgency: Optional[OrderUrgency] = None
 
 
-class ResultRead(BaseModel):
+class ResultRead(ORMModel):
     id: int
     test_run_id: int
     value: Optional[str] = None
@@ -35,9 +37,6 @@ class ResultRead(BaseModel):
     comment: Optional[str] = None
     completed_at: Optional[datetime] = None
     verified: bool
-
-    class Config:
-        from_attributes = True
 
 
 class ResultCreate(BaseModel):
@@ -62,7 +61,7 @@ class ResultUpdate(BaseModel):
     completed_at: Optional[datetime] = None
 
 
-class SpecimenRead(BaseModel):
+class SpecimenRead(ORMModel):
     specimen_id: str
     order_id: int
     specimen_type_id: int
@@ -70,11 +69,8 @@ class SpecimenRead(BaseModel):
     collected_at: Optional[datetime] = None
     received_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
 
-
-class TestRunRead(BaseModel):
+class TestRunRead(ORMModel):
     id: int
     order_id: int
     test_catalog_id: int
@@ -85,11 +81,8 @@ class TestRunRead(BaseModel):
     price: float
     results: List[ResultRead] = []
 
-    class Config:
-        from_attributes = True
 
-
-class ServiceRunRead(BaseModel):
+class ServiceRunRead(ORMModel):
     id: int
     order_id: int
     service_catalog_id: int
@@ -97,11 +90,8 @@ class ServiceRunRead(BaseModel):
     price: float
     completed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
 
-
-class OrderRead(BaseModel):
+class OrderRead(ORMModel):
     id: int
     patient_id: int
     created_by: Optional[int] = None
@@ -113,13 +103,7 @@ class OrderRead(BaseModel):
     test_runs: List[TestRunRead] = []
     service_runs: List[ServiceRunRead] = []
 
-    class Config:
-        from_attributes = True
 
-
-class OrderArchivedStatusRead(BaseModel):
+class OrderArchivedStatusRead(ORMModel):
     id: int
     archived: bool
-
-    class Config:
-        from_attributes = True

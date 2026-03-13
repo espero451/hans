@@ -9,6 +9,7 @@ from sqlalchemy import ForeignKey, String
 from hans.core.core import audit_log
 from hans.core.db import Base, get_db
 from hans.core.auth import get_current_user
+from hans.core.schemas import ORMModel
 from hans.users import User
 
 
@@ -43,15 +44,12 @@ class InstrumentCreate(BaseModel):
     location: Optional[str] = None
 
 
-class InstrumentRead(BaseModel):
+class InstrumentRead(ORMModel):
     id: int
     code: str
     name: str
     model: Optional[str] = None
     location: Optional[str] = None
-
-    class Config:
-        from_attributes = True
 
 
 class WorkstationCreate(BaseModel):
@@ -59,13 +57,10 @@ class WorkstationCreate(BaseModel):
     instrument_id: Optional[int] = None
 
 
-class WorkstationRead(BaseModel):
+class WorkstationRead(ORMModel):
     id: int
     name: str
     instrument_id: Optional[int] = None
-
-    class Config:
-        from_attributes = True
 
 
 # --- ROUTES ----------------------------------------------------------

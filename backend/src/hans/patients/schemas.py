@@ -3,6 +3,8 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel
 
+from hans.core.schemas import ORMModel
+
 
 # --- SCHEMAS ----------------------------------------------------------
 
@@ -35,7 +37,7 @@ class PatientUpdate(BaseModel):
     species_id: Optional[int] = None
 
 
-class PatientRead(BaseModel):
+class PatientRead(ORMModel):
     id: int
     name: str
     species: str
@@ -49,17 +51,11 @@ class PatientRead(BaseModel):
     microchip_number: Optional[str] = None
     species_id: int
 
-    class Config:
-        from_attributes = True
 
-
-class SpeciesRead(BaseModel):
+class SpeciesRead(ORMModel):
     # Species data for UI dropdowns.
     id: int
     code: str
     name: str
     latin_name: Optional[str] = None
     active: bool
-
-    class Config:
-        from_attributes = True
