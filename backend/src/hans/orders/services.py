@@ -122,7 +122,7 @@ async def update_order(order_id: int, data: OrderUpdate, db: AsyncSession) -> Or
     if not order:
         raise HTTPException(404, "Order not found")
     # Apply only fields sent by the client.
-    for key, value in data.dict(exclude_unset=True).items():
+    for key, value in data.model_dump(exclude_unset=True).items():
         setattr(order, key, value)
     await db.commit()
     await db.refresh(order)
@@ -196,7 +196,7 @@ async def create_result(test_run_id: int, data: ResultCreate, db: AsyncSession) 
     test_run = await fetch_test_run(test_run_id, db)
     if not test_run:
         raise HTTPException(404, "Test run not found")
-    result = Result(test_run_id=test_run_id, **data.dict())
+    result = Result(test_run_id=test_run_id, **data.model_dump())
     db.add(result)
     await db.commit()
     await db.refresh(result)
@@ -208,7 +208,7 @@ async def update_result(result_id: int, data: ResultUpdate, db: AsyncSession) ->
     if not result:
         raise HTTPException(404, "Result not found")
     # Apply only fields sent by the client.
-    for key, value in data.dict(exclude_unset=True).items():
+    for key, value in data.model_dump(exclude_unset=True).items():
         setattr(result, key, value)
     await db.commit()
     await db.refresh(result)
