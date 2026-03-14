@@ -79,3 +79,46 @@ async def test_print_specimen_maps_printer_error_to_502(monkeypatch: pytest.Monk
 
     assert exc_ctx.value.status_code == 502
     db.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_print_specimen_raises_404_when_specimen_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Guard against unknown specimen ids before printer call.
+    db = AsyncMock()
+    db.commit = AsyncMock()
+    db.refresh = AsyncMock()
+    monkeypatch.setattr("hans.orders.services.fetch_specimen", AsyncMock(return_value=None))
+
+    with pytest.raises(HTTPException) as exc_ctx:
+        await print_specimen("unknown", db)
+
+    assert exc_ctx.value.status_code == 404
+    db.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_print_specimen_calls_generate_zpl_with_specimen_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Ensure the ZPL payload is built for the exact specimen barcode.
+    specimen = SimpleNamespace(
+        specimen_id="000000001111",
+        order_id=8,
+        specimen_type_id=1,
+        status="NEW",
+        collected_at=None,
+        received_at=None,
+    )
+    db = AsyncMock()
+    db.commit = AsyncMock()
+    db.refresh = AsyncMock()
+
+    generate_zpl_mock = Mock(return_value="^XA^XZ")
+    monkeypatch.setattr("hans.orders.services.fetch_specimen", AsyncMock(return_value=specimen))
+    monkeypatch.setattr("hans.orders.services.generate_zpl_label", generate_zpl_mock)
+    monkeypatch.setattr("hans.orders.services.send_zpl", Mock())
+    monkeypatch.setattr("hans.orders.services.asyncio.to_thread", AsyncMock())
+
+    await print_specimen(specimen.specimen_id, db)
+
+    generate_zpl_mock.assert_called_once_with("000000001111")
