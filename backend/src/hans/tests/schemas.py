@@ -7,13 +7,6 @@ from hans.core.schemas import ORMModel
 
 # --- SCHEMAS ----------------------------------------------------------
 
-class TestCatalogCreate(BaseModel):
-    code: str
-    description: Optional[str] = None
-    price: float
-    specimen_type_id: int
-
-
 class TestCatalogRead(ORMModel):
     id: int
     code: str

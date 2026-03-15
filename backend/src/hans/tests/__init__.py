@@ -1,11 +1,10 @@
 from .models import TestCatalog
 from .routers import router
-from .schemas import TestCatalogCreate, TestCatalogRead
+from .schemas import TestCatalogRead
 
 
 __all__ = [
     "router",
     "TestCatalog",
-    "TestCatalogCreate",
     "TestCatalogRead",
 ]
