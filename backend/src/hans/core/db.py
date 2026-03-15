@@ -7,7 +7,13 @@ from hans.core.settings import settings
 # --- Engine -----------------------------------------------------------
 
 # Create a single async engine for the application.
-engine = create_async_engine(settings.database_url, echo=False)
+# engine = create_async_engine(settings.database_url, echo=False)
+engine = create_async_engine(
+    settings.database_url,
+    pool_size=20,
+    max_overflow=40,
+    pool_pre_ping=True,
+)
 
 
 # --- Sessions ---------------------------------------------------------
@@ -24,3 +30,8 @@ class Base(DeclarativeBase):
 async def get_db() -> AsyncSession:
     async with SessionLocal() as session:
         yield session
+
+# async def get_db() -> AsyncSession:
+#     async with SessionLocal() as session:
+#         async with session.begin():
+#             yield session
