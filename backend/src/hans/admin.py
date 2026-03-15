@@ -71,7 +71,9 @@ class UserAdmin(ModelView, model=User):
     column_labels = {"hashed_password": "password"}
     form_create_rules = ["username", "email", "role", "hashed_password"]
     form_edit_rules = ["username", "email", "role"]
-
+    # icon = "fa-solid fa-user"
+    category = "Accounts"
+    category_icon = "fa-solid fa-user"
     # Hash the password only on create.
     async def on_model_change(
         self,
@@ -88,6 +90,8 @@ class UserAdmin(ModelView, model=User):
 
 
 class OwnerAdmin(ModelView, model=Owner):
+    category = "Clients"
+    category_icon = "fa-solid fa-paw"
     column_list = [
         Owner.id,
         Owner.first_name,
@@ -99,6 +103,8 @@ class OwnerAdmin(ModelView, model=Owner):
 
 
 class PatientAdmin(ModelView, model=Patient):
+    category = "Clients"
+    category_icon = "fa-solid fa-paw"
     column_list = [
         Patient.id,
         Patient.name,
@@ -122,6 +128,8 @@ class PatientAdmin(ModelView, model=Patient):
 class SpeciesAdmin(ModelView, model=Species):
     name = "Specie"
     name_plural = "Species"
+    category = "Catalogs"
+    category_icon = "fa-solid fa-list"
     column_list = [
         Species.id,
         Species.code,
@@ -132,6 +140,8 @@ class SpeciesAdmin(ModelView, model=Species):
 
 
 class OrderAdmin(ModelView, model=Order):
+    category = "Orders"
+    category_icon = "fa-solid fa-clipboard-list"
     column_list = [
         Order.id,
         Order.patient_id,
@@ -149,6 +159,8 @@ class OrderAdmin(ModelView, model=Order):
 
 
 class SpecimenAdmin(ModelView, model=Specimen):
+    category = "Orders"
+    category_icon = "fa-solid fa-clipboard-list"
     column_list = [
         Specimen.specimen_id,
         Specimen.order_id,
@@ -165,6 +177,9 @@ class SpecimenAdmin(ModelView, model=Specimen):
 
 
 class TestRunAdmin(ModelView, model=TestRun):
+    category = "Orders"
+    category_icon = "fa-solid fa-clipboard-list"
+    page_size = 50
     column_list = [
         TestRun.id,
         TestRun.order_id,
@@ -189,6 +204,8 @@ class TestRunAdmin(ModelView, model=TestRun):
 
 
 class ResultAdmin(ModelView, model=Result):
+    category = "Orders"
+    category_icon = "fa-solid fa-clipboard-list"
     column_list = [
         Result.id,
         Result.test_run_id,
@@ -201,6 +218,8 @@ class ResultAdmin(ModelView, model=Result):
 
 
 class ServiceRunAdmin(ModelView, model=ServiceRun):
+    category = "Orders"
+    category_icon = "fa-solid fa-clipboard-list"
     column_list = [
         ServiceRun.id,
         ServiceRun.order_id,
@@ -219,7 +238,10 @@ class ServiceRunAdmin(ModelView, model=ServiceRun):
 class TestCatalogAdmin(ModelView, model=TestCatalog):
     name = "Test in Test Catalog"
     name_plural = "Test Catalog"
-
+    page_size = 50
+    # icon = "fa-solid fa-flask"
+    category = "Catalogs"
+    category_icon = "fa-solid fa-list"
     # Use relationship field to show a specimen type dropdown.
     form_create_rules = ["code", "description", "price", "specimen_type"]
     form_edit_rules = ["code", "description", "price", "specimen_type"]
@@ -241,6 +263,8 @@ class TestCatalogAdmin(ModelView, model=TestCatalog):
 class ServiceCatalogAdmin(ModelView, model=ServiceCatalog):
     name = "Service in Service Catalog"
     name_plural = "Service Catalog"
+    category = "Catalogs"
+    category_icon = "fa-solid fa-list"
     column_list = [
         ServiceCatalog.id,
         ServiceCatalog.name,
@@ -250,6 +274,8 @@ class ServiceCatalogAdmin(ModelView, model=ServiceCatalog):
 
 
 class SpecimenTypeAdmin(ModelView, model=SpecimenType):
+    category = "Catalogs"
+    category_icon = "fa-solid fa-list"
     column_list = [
         SpecimenType.id,
         SpecimenType.code,
@@ -266,6 +292,8 @@ class SpecimenTypeAdmin(ModelView, model=SpecimenType):
 
 
 class TubeTypeAdmin(ModelView, model=TubeType):
+    category = "Catalogs"
+    category_icon = "fa-solid fa-list"
     column_list = [
         TubeType.id,
         TubeType.code,
@@ -275,6 +303,8 @@ class TubeTypeAdmin(ModelView, model=TubeType):
 
 
 class InstrumentAdmin(ModelView, model=Instrument):
+    category = "Instruments"
+    category_icon = "fa-solid fa-gears"
     column_list = [
         Instrument.id,
         Instrument.code,
@@ -285,6 +315,8 @@ class InstrumentAdmin(ModelView, model=Instrument):
 
 
 class WorkstationAdmin(ModelView, model=Workstation):
+    category = "Instruments"
+    category_icon = "fa-solid fa-gears"
     column_list = [
         Workstation.id,
         Workstation.name,
