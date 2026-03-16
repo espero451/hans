@@ -1,163 +1,159 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
-import { useRouter } from "vue-router";
-import api from "../api/http";
-import Button from "primevue/button";
-import DataTable from "primevue/datatable";
-import Column from "primevue/column";
-import Dropdown from "primevue/dropdown";
-import DatePicker from "primevue/datepicker";
-import Tag from "primevue/tag";
+import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import api from '../api/http'
+import Button from 'primevue/button'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import Dropdown from 'primevue/dropdown'
+import DatePicker from 'primevue/datepicker'
+import Tag from 'primevue/tag'
 
-const router = useRouter();
+const router = useRouter()
 
-const orders = ref<any[]>([]);
-const patients = ref<any[]>([]);
-const owners = ref<any[]>([]);
+const orders = ref<any[]>([])
+const patients = ref<any[]>([])
+const owners = ref<any[]>([])
 
-const statusFilter = ref<"active" | "resulted" | "archived">("active");
-const selectedDate = ref<Date | null>(null);
-const selectedOwner = ref<number | null>(null);
-const selectedPatient = ref<number | null>(null);
+const statusFilter = ref<'active' | 'resulted' | 'archived'>('active')
+const selectedDate = ref<Date | null>(null)
+const selectedOwner = ref<number | null>(null)
+const selectedPatient = ref<number | null>(null)
 
 const statusOptions = [
-  { label: "Active", value: "active" },
-  { label: "Resulted", value: "resulted" },
-  { label: "Archived", value: "archived" },
-];
+  { label: 'Active', value: 'active' },
+  { label: 'Resulted', value: 'resulted' },
+  { label: 'Archived', value: 'archived' },
+]
 
 const ownerOptions = computed(() =>
   owners.value.map((o) => ({
     label: `${o.first_name} ${o.last_name}`,
     value: o.id,
-  }))
-);
+  })),
+)
 
 const patientOptions = computed(() =>
   patients.value.map((p) => ({
     label: p.name,
     value: p.id,
-  }))
-);
+  })),
+)
 
-const patientById = computed(
-  () => new Map(patients.value.map((p) => [p.id, p]))
-);
-const ownerById = computed(
-  () => new Map(owners.value.map((o) => [o.id, o]))
-);
+const patientById = computed(() => new Map(patients.value.map((p) => [p.id, p])))
+const ownerById = computed(() => new Map(owners.value.map((o) => [o.id, o])))
 
 function orderHasResults(order: any) {
   return (order?.test_runs || []).some(
-    (run: any) => Array.isArray(run.results) && run.results.length > 0
-  );
+    (run: any) => Array.isArray(run.results) && run.results.length > 0,
+  )
 }
 
 function urgencyRank(urgency?: string) {
-  if (urgency === "STAT") return 0;
-  if (urgency === "URGENT") return 1;
-  return 2;
+  if (urgency === 'STAT') return 0
+  if (urgency === 'URGENT') return 1
+  return 2
 }
 
 function urgencySeverity(urgency?: string) {
-  if (urgency === "STAT") return "danger";
-  if (urgency === "URGENT") return "warning";
-  return "secondary";
+  if (urgency === 'STAT') return 'danger'
+  if (urgency === 'URGENT') return 'warning'
+  return 'secondary'
 }
 
 function dateKey(input: string | Date | null) {
-  if (!input) return "";
-  const date = typeof input === "string" ? new Date(input) : input;
-  if (Number.isNaN(date.getTime())) return "";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  if (!input) return ''
+  const date = typeof input === 'string' ? new Date(input) : input
+  if (Number.isNaN(date.getTime())) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function patientLabel(patientId: number) {
-  const patient = patientById.value.get(patientId);
-  return patient ? patient.name : `Patient #${patientId}`;
+  const patient = patientById.value.get(patientId)
+  return patient ? patient.name : `Patient #${patientId}`
 }
 
 function ownerLabelForPatient(patientId: number) {
-  const patient = patientById.value.get(patientId);
-  if (!patient) return "Unknown";
-  const owner = ownerById.value.get(patient.owner_id);
-  return owner ? `${owner.first_name} ${owner.last_name}` : `Owner #${patient.owner_id}`;
+  const patient = patientById.value.get(patientId)
+  if (!patient) return 'Unknown'
+  const owner = ownerById.value.get(patient.owner_id)
+  return owner ? `${owner.first_name} ${owner.last_name}` : `Owner #${patient.owner_id}`
 }
 
 const filteredOrders = computed(() => {
-  const selectedDateKey = dateKey(selectedDate.value);
+  const selectedDateKey = dateKey(selectedDate.value)
   const list = orders.value.filter((order) => {
-    if (statusFilter.value === "active" && order.archived) return false;
-    if (statusFilter.value === "archived" && !order.archived) return false;
-    if (statusFilter.value === "resulted" && !orderHasResults(order)) return false;
+    if (statusFilter.value === 'active' && order.archived) return false
+    if (statusFilter.value === 'archived' && !order.archived) return false
+    if (statusFilter.value === 'resulted' && !orderHasResults(order)) return false
 
     if (selectedDateKey) {
-      const orderDateKey = dateKey(order.created_at);
-      if (!orderDateKey || orderDateKey !== selectedDateKey) return false;
+      const orderDateKey = dateKey(order.created_at)
+      if (!orderDateKey || orderDateKey !== selectedDateKey) return false
     }
 
     if (selectedPatient.value && order.patient_id !== selectedPatient.value) {
-      return false;
+      return false
     }
 
     if (selectedOwner.value) {
-      const patient = patientById.value.get(order.patient_id);
-      if (!patient || patient.owner_id !== selectedOwner.value) return false;
+      const patient = patientById.value.get(order.patient_id)
+      if (!patient || patient.owner_id !== selectedOwner.value) return false
     }
 
-    return true;
-  });
+    return true
+  })
 
   return list.sort((a, b) => {
-    const urgencyDiff = urgencyRank(a.urgency) - urgencyRank(b.urgency);
-    if (urgencyDiff !== 0) return urgencyDiff;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
-});
+    const urgencyDiff = urgencyRank(a.urgency) - urgencyRank(b.urgency)
+    if (urgencyDiff !== 0) return urgencyDiff
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
+})
 
 const resultsSummary = computed(
-  () => `${filteredOrders.value.length} of ${orders.value.length} orders`
-);
+  () => `${filteredOrders.value.length} of ${orders.value.length} orders`,
+)
 
 async function loadOwners() {
-  const res = await api.get("/owners/");
-  owners.value = res.data;
+  const res = await api.get('/owners/')
+  owners.value = res.data
 }
 
 async function loadPatients() {
-  const res = await api.get("/patients/");
-  patients.value = res.data;
+  const res = await api.get('/patients/')
+  patients.value = res.data.items
 }
 
 async function loadOrders() {
   const orderPromises = patients.value.map(async (patient) => {
     try {
-      const res = await api.get(`/patients/${patient.id}/orders`);
-      return res.data;
+      const res = await api.get(`/patients/${patient.id}/orders`)
+      return res.data
     } catch (err) {
-      console.error(`Failed to load orders for patient ${patient.id}`, err);
-      return [];
+      console.error(`Failed to load orders for patient ${patient.id}`, err)
+      return []
     }
-  });
+  })
 
-  const ordersNested = await Promise.all(orderPromises);
-  orders.value = ordersNested.flat();
+  const ordersNested = await Promise.all(orderPromises)
+  orders.value = ordersNested.flat()
 }
 
 function resetFilters() {
-  statusFilter.value = "active";
-  selectedDate.value = null;
-  selectedOwner.value = null;
-  selectedPatient.value = null;
+  statusFilter.value = 'active'
+  selectedDate.value = null
+  selectedOwner.value = null
+  selectedPatient.value = null
 }
 
 onMounted(async () => {
-  await Promise.all([loadOwners(), loadPatients()]);
-  await loadOrders();
-});
+  await Promise.all([loadOwners(), loadPatients()])
+  await loadOrders()
+})
 </script>
 
 <template>
@@ -173,12 +169,7 @@ onMounted(async () => {
           optionValue="value"
           placeholder="Status"
         />
-        <DatePicker
-          v-model="selectedDate"
-          placeholder="Filter date"
-          showIcon
-          showButtonBar
-        />
+        <DatePicker v-model="selectedDate" placeholder="Filter date" showIcon showButtonBar />
         <Dropdown
           v-model="selectedOwner"
           :options="ownerOptions"
@@ -207,7 +198,8 @@ onMounted(async () => {
         :value="filteredOrders"
         dataKey="id"
         :emptyMessage="'No orders found'"
-        @row-click="(e) => router.push(`/orders/${e.data.id}`)">
+        @row-click="(e) => router.push(`/orders/${e.data.id}`)"
+      >
         <Column header="Order">
           <template #body="{ data }">
             <a :href="`/orders/${data.id}`">#{{ data.id }}</a>
@@ -223,10 +215,7 @@ onMounted(async () => {
         </Column>
         <Column header="Urgency">
           <template #body="{ data }">
-            <Tag
-              :value="data.urgency || 'ROUTINE'"
-              :severity="urgencySeverity(data.urgency)"
-            />
+            <Tag :value="data.urgency || 'ROUTINE'" :severity="urgencySeverity(data.urgency)" />
           </template>
         </Column>
         <Column header="Results">

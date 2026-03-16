@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import Patient, Species
@@ -16,6 +16,11 @@ async def fetch_patients(skip: int, limit: int, db: AsyncSession) -> List[Patien
 async def fetch_patient(patient_id: int, db: AsyncSession) -> Optional[Patient]:
     result = await db.execute(select(Patient).where(Patient.id == patient_id))
     return result.scalar_one_or_none()
+
+
+async def count_patients(db: AsyncSession) -> int:
+    result = await db.execute(select(func.count()).select_from(Patient))
+    return result.scalar_one()
 
 
 # --- SPECIES QUERIES --------------------------------------------------

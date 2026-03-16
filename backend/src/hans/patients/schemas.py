@@ -37,11 +37,17 @@ class PatientUpdate(BaseModel):
     species_id: Optional[int] = None
 
 
+class OwnerShort(ORMModel):
+    id: int
+    first_name: str
+    last_name: str
+
 class PatientRead(ORMModel):
     id: int
     name: str
     species: str
     owner_id: int
+    owner: Optional[OwnerShort] = None
     breed: Optional[str] = None
     birth_date: Optional[date] = None
     created_at: datetime

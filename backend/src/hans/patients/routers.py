@@ -1,10 +1,11 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from hans.core.auth import get_current_user
+from hans.core.auth import get_current_principal, get_current_user
 from hans.core.core import audit_log
+from hans.core.schemas import Page
 from hans.core.db import get_db
 from hans.users import User
 
@@ -31,19 +32,32 @@ species_router = APIRouter(prefix="/species", tags=["species"])
 @species_router.get("/", response_model=List[SpeciesRead])
 async def get_species(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_principal),
 ) -> List[SpeciesRead]:
     return await get_species_service(db)
 
 
-@router.get("/", response_model=List[PatientRead])
+# @router.get("/", response_model=List[PatientRead])
+# async def get_patients(
+#     db: AsyncSession = Depends(get_db),
+#     current_user: User = Depends(get_current_user),
+#     skip: int = 0,
+#     limit: int = 100,
+# ) -> List[PatientRead]:
+#     return await get_patients_service(skip, limit, db)
+
+@router.get("/", response_model=Page[PatientRead])
 async def get_patients(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    skip: int = 0,
-    limit: int = 100,
-) -> List[PatientRead]:
-    return await get_patients_service(skip, limit, db)
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+) -> Page[PatientRead]:
+    items, total = await get_patients_service(skip, limit, db)
+    return Page(
+        items=items,
+        total=total,
+    )
 
 
 @router.post("/", response_model=PatientRead)

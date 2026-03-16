@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from hans.tools.media import MediaService
 
 from .models import Patient
-from .repositories import fetch_patient, fetch_patients, fetch_species
+from .repositories import fetch_patient, fetch_patients, fetch_species, count_patients
 from .schemas import PatientCreate, PatientRead, PatientUpdate, SpeciesRead
 
 
@@ -25,9 +25,16 @@ async def get_species(db: AsyncSession) -> list[SpeciesRead]:
 
 # --- PATIENT FLOWS ----------------------------------------------------
 
-async def get_patients(skip: int, limit: int, db: AsyncSession) -> list[PatientRead]:
+# async def get_patients(skip: int, limit: int, db: AsyncSession) -> list[PatientRead]:
+    # patients = await fetch_patients(skip, limit, db)
+    # return [PatientRead.model_validate(item) for item in patients]
+
+
+async def get_patients(skip: int, limit: int, db: AsyncSession) -> tuple[list[PatientRead], int]:
     patients = await fetch_patients(skip, limit, db)
-    return [PatientRead.model_validate(item) for item in patients]
+    total = await count_patients(db)
+    items = [PatientRead.model_validate(p) for p in patients]
+    return items, total
 
 
 async def get_patient(patient_id: int, db: AsyncSession) -> PatientRead:
