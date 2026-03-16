@@ -1,5 +1,5 @@
-import { ref } from "vue"
-import { getCurrentUser, logout } from "../api/auth"
+import { ref } from 'vue'
+import { getCurrentUser, logout } from '../api/auth'
 
 const user = ref<any | null>(null)
 
@@ -13,7 +13,7 @@ export function useAuth() {
   }
 
   async function loadUser() {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem('token')
     if (!token) {
       user.value = null
       return null

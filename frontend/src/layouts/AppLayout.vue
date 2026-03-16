@@ -11,12 +11,7 @@
               {{ user.username }}
             </span>
 
-            <Button
-              icon="pi pi-power-off"
-              severity="secondary"
-              text
-              @click="handleLogout"
-            />
+            <Button icon="pi pi-power-off" severity="secondary" text @click="handleLogout" />
           </div>
         </template>
       </Menubar>
@@ -29,45 +24,42 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from "vue";
-import { useRouter } from "vue-router";
-import Menubar from "primevue/menubar";
-import Button from "primevue/button";
-import { useAuth } from "../composables/useAuth"
+import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import Menubar from 'primevue/menubar'
+import Button from 'primevue/button'
+import { useAuth } from '../composables/useAuth'
 
-const router = useRouter();
-
+const router = useRouter()
 
 const { user, clearUser, loadUser } = useAuth()
 
 onMounted(async () => {
   try {
     await loadUser()
-  } catch (err) {
-    localStorage.removeItem("token")
+  } catch (_err) {
+    localStorage.removeItem('token')
   }
 })
 
 function handleLogout() {
   clearUser()
-  localStorage.removeItem("token")
-  router.push("/login")
+  localStorage.removeItem('token')
+  router.push('/login')
 }
 
-
 const items = [
-  { label: "Dashboard", icon: "pi pi-home", command: () => router.push("/dashboard") },
-  { label: "Patients", icon: "pi pi-heart", command: () => router.push("/patients") },
-  { label: "Owners", icon: "pi pi-users", command: () => router.push("/owners") },
-  { label: "Orders", icon: "pi pi-list-check", command: () => router.push("/orders") },
-  { label: "Settings", icon: "pi pi-cog", command: () => router.push("/settings") },
-];
+  { label: 'Dashboard', icon: 'pi pi-home', command: () => router.push('/dashboard') },
+  { label: 'Patients', icon: 'pi pi-heart', command: () => router.push('/patients') },
+  { label: 'Owners', icon: 'pi pi-users', command: () => router.push('/owners') },
+  { label: 'Orders', icon: 'pi pi-list-check', command: () => router.push('/orders') },
+  { label: 'Settings', icon: 'pi pi-cog', command: () => router.push('/settings') },
+]
 </script>
 
 <style scoped>
 .app-shell {
   width: 100%;
-  /* padding: 1rem; */
 }
 
 .brand-logo {
@@ -85,7 +77,7 @@ const items = [
   width: 100%;
   max-width: 100%;
   margin: 0 auto;
-  padding: 1rem; 
+  padding: 1rem;
 }
 
 .main-content {

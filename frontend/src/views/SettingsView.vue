@@ -1,60 +1,60 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import api from "../api/http";
-import Button from "primevue/button";
-import Card from "primevue/card";
+import { ref, onMounted } from 'vue'
+import api from '../api/http'
+import Button from 'primevue/button'
+import Card from 'primevue/card'
 
 /*
-# --- Dispatcher State -------------------------------------------------
+--- Dispatcher State --------------------------------------------------
 */
 
-const dispatcherStatus = ref<"running" | "stopped" | "unknown">("unknown");
-const dispatcherError = ref<string | null>(null);
-const dispatcherLoading = ref(false);
-const dispatcherLastStartedAt = ref<string | null>(null);
-const dispatcherLastStoppedAt = ref<string | null>(null);
+const dispatcherStatus = ref<'running' | 'stopped' | 'unknown'>('unknown')
+const dispatcherError = ref<string | null>(null)
+const dispatcherLoading = ref(false)
+const dispatcherLastStartedAt = ref<string | null>(null)
+const dispatcherLastStoppedAt = ref<string | null>(null)
 
 /*
-# --- Dispatcher Actions -----------------------------------------------
+--- Dispatcher Actions ------------------------------------------------
 */
 
 async function loadDispatcherStatus() {
   try {
-    const res = await api.get("/settings/dispatcher/status");
-    dispatcherStatus.value = res.data.running ? "running" : "stopped";
-    dispatcherError.value = res.data.error || null;
-    dispatcherLastStartedAt.value = res.data.last_started_at || null;
-    dispatcherLastStoppedAt.value = res.data.last_stopped_at || null;
-  } catch (error) {
-    dispatcherStatus.value = "stopped";
-    dispatcherError.value = "Unable to load dispatcher status";
-    dispatcherLastStartedAt.value = null;
-    dispatcherLastStoppedAt.value = null;
+    const res = await api.get('/settings/dispatcher/status')
+    dispatcherStatus.value = res.data.running ? 'running' : 'stopped'
+    dispatcherError.value = res.data.error || null
+    dispatcherLastStartedAt.value = res.data.last_started_at || null
+    dispatcherLastStoppedAt.value = res.data.last_stopped_at || null
+  } catch (_err) {
+    dispatcherStatus.value = 'stopped'
+    dispatcherError.value = 'Unable to load dispatcher status'
+    dispatcherLastStartedAt.value = null
+    dispatcherLastStoppedAt.value = null
   }
 }
 
 async function restartDispatcher() {
-  dispatcherLoading.value = true;
+  dispatcherLoading.value = true
   try {
-    const res = await api.post("/settings/dispatcher/restart");
-    dispatcherStatus.value = res.data.running ? "running" : "stopped";
-    dispatcherError.value = res.data.error || null;
-    dispatcherLastStartedAt.value = res.data.last_started_at || null;
-    dispatcherLastStoppedAt.value = res.data.last_stopped_at || null;
+    const res = await api.post('/settings/dispatcher/restart')
+    dispatcherStatus.value = res.data.running ? 'running' : 'stopped'
+    dispatcherError.value = res.data.error || null
+    dispatcherLastStartedAt.value = res.data.last_started_at || null
+    dispatcherLastStoppedAt.value = res.data.last_stopped_at || null
   } finally {
-    dispatcherLoading.value = false;
+    dispatcherLoading.value = false
   }
 }
 
 async function openDispatcherTrace() {
-  const traceWindow = window.open("", "_blank");
-  if (!traceWindow) return;
+  const traceWindow = window.open('', '_blank')
+  if (!traceWindow) return
 
-  const doc = traceWindow.document;
-  doc.title = "Dispatcher Trace";
+  const doc = traceWindow.document
+  doc.title = 'Dispatcher Trace'
 
-  // Стили
-  const style = doc.createElement("style");
+  // Styles
+  const style = doc.createElement('style')
   style.textContent = `
     body {
       background: #000;
@@ -69,30 +69,27 @@ async function openDispatcherTrace() {
       font-size: 13px;
       line-height: 1.4;
     }
-  `;
-  doc.head.appendChild(style);
+  `
+  doc.head.appendChild(style)
 
-  const pre = doc.createElement("pre");
-  pre.textContent = "Loading dispatcher trace...";
-  doc.body.appendChild(pre);
+  const pre = doc.createElement('pre')
+  pre.textContent = 'Loading dispatcher trace...'
+  doc.body.appendChild(pre)
 
   try {
-    const res = await api.get("/settings/dispatcher/trace", {
-      responseType: "text",
-    });
+    const res = await api.get('/settings/dispatcher/trace', {
+      responseType: 'text',
+    })
 
-    const traceText =
-      typeof res.data === "string"
-        ? res.data
-        : JSON.stringify(res.data, null, 2);
+    const traceText = typeof res.data === 'string' ? res.data : JSON.stringify(res.data, null, 2)
 
-    pre.textContent = traceText || "No dispatcher trace available.";
+    pre.textContent = traceText || 'No dispatcher trace available.'
   } catch {
-    pre.textContent = "Unable to load dispatcher trace.";
+    pre.textContent = 'Unable to load dispatcher trace.'
   }
 }
 
-onMounted(loadDispatcherStatus);
+onMounted(loadDispatcherStatus)
 </script>
 
 <template>
@@ -105,9 +102,11 @@ onMounted(loadDispatcherStatus);
         <template #content>
           <div class="flex align-items-start gap-3 w-full">
             <div class="flex flex-column gap-1">
-              <div>Status: <strong>{{ dispatcherStatus }}</strong></div>
-              <div>Last start: {{ dispatcherLastStartedAt || "-" }}</div>
-              <div>Last stop: {{ dispatcherLastStoppedAt || "-" }}</div>
+              <div>
+                Status: <strong>{{ dispatcherStatus }}</strong>
+              </div>
+              <div>Last start: {{ dispatcherLastStartedAt || '-' }}</div>
+              <div>Last stop: {{ dispatcherLastStoppedAt || '-' }}</div>
               <div v-if="dispatcherError">Error: {{ dispatcherError }}</div>
             </div>
             <div class="ml-auto flex gap-2">
@@ -116,15 +115,11 @@ onMounted(loadDispatcherStatus);
                 :loading="dispatcherLoading"
                 @click="restartDispatcher"
               />
-              <Button
-                label="Open trace"
-                @click="openDispatcherTrace"
-              />
+              <Button label="Open trace" @click="openDispatcherTrace" />
             </div>
           </div>
         </template>
       </Card>
     </section>
-
   </div>
 </template>

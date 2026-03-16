@@ -1,123 +1,113 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import api from "../api/http";
-import Button from "primevue/button";
-import Card from "primevue/card";
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import api from '../api/http'
+import Button from 'primevue/button'
+import Card from 'primevue/card'
 // import Divider from "primevue/divider";
-import MultiSelect from "primevue/multiselect";
-import InputText from "primevue/inputtext";
-import InputNumber from "primevue/inputnumber";
-import Textarea from "primevue/textarea";
-import Tag from "primevue/tag";
-import Dropdown from "primevue/dropdown";
-import DatePicker from "primevue/datepicker";
+import MultiSelect from 'primevue/multiselect'
+import InputText from 'primevue/inputtext'
+import InputNumber from 'primevue/inputnumber'
+import Textarea from 'primevue/textarea'
+import Tag from 'primevue/tag'
+import Dropdown from 'primevue/dropdown'
+import DatePicker from 'primevue/datepicker'
 
-const route = useRoute();
-const router = useRouter();
-const patient = ref<any>(null);
-const owner = ref<any>(null);
-const orders = ref<any[]>([]);
-const tests = ref<any[]>([]);
-const services = ref<any[]>([]);
-const speciesOptions = ref<any[]>([]);
-const selectedTestIds = ref<number[]>([]);
-const selectedServiceIds = ref<number[]>([]);
-const orderComment = ref("");
-const savingAll = ref(false);
-const isEditing = ref(false);
-const editablePatient = ref<any | null>(null);
-const showOrderForm = ref(false);
-const patientPhotoUrl = ref<string | null>(null);
-const uploadingPhoto = ref(false);
-const photoInput = ref<HTMLInputElement | null>(null);
-
+const route = useRoute()
+const router = useRouter()
+const patient = ref<any>(null)
+const owner = ref<any>(null)
+const orders = ref<any[]>([])
+const tests = ref<any[]>([])
+const services = ref<any[]>([])
+const speciesOptions = ref<any[]>([])
+const selectedTestIds = ref<number[]>([])
+const selectedServiceIds = ref<number[]>([])
+const orderComment = ref('')
+const savingAll = ref(false)
+const isEditing = ref(false)
+const editablePatient = ref<any | null>(null)
+const showOrderForm = ref(false)
+const patientPhotoUrl = ref<string | null>(null)
+const uploadingPhoto = ref(false)
+const photoInput = ref<HTMLInputElement | null>(null)
 
 const testOptions = computed(() =>
-  tests.value.map((t) => ({ label: t.code || t.name, value: t.id }))
-);
-const serviceOptions = computed(() =>
-  services.value.map((s) => ({ label: s.name, value: s.id }))
-);
+  tests.value.map((t) => ({ label: t.code || t.name, value: t.id })),
+)
+const serviceOptions = computed(() => services.value.map((s) => ({ label: s.name, value: s.id })))
 const testLabelMap = computed(() => {
-  const map = new Map<number, string>();
+  const map = new Map<number, string>()
   tests.value.forEach((t) => {
-    map.set(t.id, t.code || t.name);
-  });
-  return map;
-});
+    map.set(t.id, t.code || t.name)
+  })
+  return map
+})
 const serviceLabelMap = computed(() => {
-  const map = new Map<number, string>();
+  const map = new Map<number, string>()
   services.value.forEach((s) => {
-    map.set(s.id, s.name);
-  });
-  return map;
-});
+    map.set(s.id, s.name)
+  })
+  return map
+})
 const speciesDisplayName = computed(() => {
-  const speciesId = patient.value?.species_id;
-  if (!speciesId) return "";
-  const selected = speciesOptions.value.find((s) => s.id === speciesId);
-  return selected ? selected.name : "";
-});
+  const speciesId = patient.value?.species_id
+  if (!speciesId) return ''
+  const selected = speciesOptions.value.find((s) => s.id === speciesId)
+  return selected ? selected.name : ''
+})
 const sexOptions = [
-  { label: "Male", value: "male" },
-  { label: "Female", value: "female" },
-  { label: "Unknown", value: "unknown" },
-];
+  { label: 'Male', value: 'male' },
+  { label: 'Female', value: 'female' },
+  { label: 'Unknown', value: 'unknown' },
+]
 
 async function load() {
-  await loadPatient();
+  await loadPatient()
 
-  await Promise.all([
-    loadOrders(),
-    loadTests(),
-    loadServices(),
-    loadSpecies(),
-  ]);
+  await Promise.all([loadOrders(), loadTests(), loadServices(), loadSpecies()])
 
-  await loadPatientPhoto();
+  await loadPatientPhoto()
 }
 
 async function addOrder() {
-  if (!selectedTestIds.value.length && !selectedServiceIds.value.length) return;
+  if (!selectedTestIds.value.length && !selectedServiceIds.value.length) return
 
-  const res = await api.post("/orders/", {
+  const res = await api.post('/orders/', {
     patient_id: patient.value.id,
     test_catalog_ids: selectedTestIds.value,
     service_catalog_ids: selectedServiceIds.value,
     comment: orderComment.value,
-  });
+  })
 
-  await loadOrders();
+  await loadOrders()
   // clean form
-  selectedTestIds.value = [];
-  selectedServiceIds.value = [];
-  orderComment.value = "";
+  selectedTestIds.value = []
+  selectedServiceIds.value = []
+  orderComment.value = ''
 
   if (res.data?.id) {
-    await router.push(`/orders/${res.data.id}`);
+    await router.push(`/orders/${res.data.id}`)
   }
 }
 
 function startEdit() {
-  if (!patient.value) return;
+  if (!patient.value) return
   editablePatient.value = {
     ...patient.value,
     species_id: patient.value?.species_id ?? null,
-    birth_date: patient.value?.birth_date
-      ? new Date(patient.value.birth_date)
-      : null,
-  };
-  isEditing.value = true;
+    birth_date: patient.value?.birth_date ? new Date(patient.value.birth_date) : null,
+  }
+  isEditing.value = true
 }
 
 async function savePatientAll() {
-  if (!patient.value || !editablePatient.value) return;
-  savingAll.value = true;
+  if (!patient.value || !editablePatient.value) return
+  savingAll.value = true
   try {
     const birthDate = editablePatient.value.birth_date
-      ? editablePatient.value.birth_date.toISOString().split("T")[0]
-      : null;
+      ? editablePatient.value.birth_date.toISOString().split('T')[0]
+      : null
     const res = await api.patch(`/patients/${patient.value.id}`, {
       name: editablePatient.value.name || null,
       species_id: editablePatient.value.species_id ?? null,
@@ -127,132 +117,128 @@ async function savePatientAll() {
       breed: editablePatient.value.breed || null,
       microchip_number: editablePatient.value.microchip_number || null,
       birth_date: birthDate,
-    });
-    patient.value = res.data;
-    isEditing.value = false;
+    })
+    patient.value = res.data
+    isEditing.value = false
   } finally {
-    savingAll.value = false;
+    savingAll.value = false
   }
 }
 
-onMounted(load);
+onMounted(load)
 onUnmounted(() => {
   if (patientPhotoUrl.value) {
-    URL.revokeObjectURL(patientPhotoUrl.value);
-    patientPhotoUrl.value = null;
+    URL.revokeObjectURL(patientPhotoUrl.value)
+    patientPhotoUrl.value = null
   }
-});
+})
 
 function testLabel(testCatalogId: number) {
-  return testLabelMap.value.get(testCatalogId) ?? testCatalogId;
+  return testLabelMap.value.get(testCatalogId) ?? testCatalogId
 }
 
 function serviceLabel(serviceCatalogId: number) {
-  return serviceLabelMap.value.get(serviceCatalogId) ?? serviceCatalogId;
+  return serviceLabelMap.value.get(serviceCatalogId) ?? serviceCatalogId
 }
 
 async function loadPatient() {
-  const id = route.params.id;
-  const patientRes = await api.get(`/patients/${id}`);
-  patient.value = patientRes.data;
+  const id = route.params.id
+  const patientRes = await api.get(`/patients/${id}`)
+  patient.value = patientRes.data
   if (patient.value.owner_id) {
     try {
-      const ownerRes = await api.get(`/owners/${patient.value.owner_id}`);
-      owner.value = ownerRes.data;
+      const ownerRes = await api.get(`/owners/${patient.value.owner_id}`)
+      owner.value = ownerRes.data
     } catch (err) {
-      console.error("Failed to load owner:", err);
-      owner.value = null;
+      console.error('Failed to load owner:', err)
+      owner.value = null
     }
   }
 }
 
 async function loadOrders() {
-  if (!patient.value?.id) return;
+  if (!patient.value?.id) return
   try {
-    const ordersRes = await api.get(`/patients/${patient.value.id}/orders`);
-    orders.value = ordersRes.data;
+    const ordersRes = await api.get(`/patients/${patient.value.id}/orders`)
+    orders.value = ordersRes.data
   } catch (err) {
-    console.error("Failed to load orders:", err);
-    orders.value = [];
+    console.error('Failed to load orders:', err)
+    orders.value = []
   }
 }
 
 async function loadTests() {
-  const testsRes = await api.get(`/tests/`);
-  tests.value = testsRes.data;
+  const testsRes = await api.get(`/tests/`)
+  tests.value = testsRes.data
 }
 
 async function loadServices() {
-  const servicesRes = await api.get(`/services/`);
-  services.value = servicesRes.data;
+  const servicesRes = await api.get(`/services/`)
+  services.value = servicesRes.data
 }
 
 async function loadSpecies() {
-  const res = await api.get("/species/");
-  speciesOptions.value = res.data;
+  const res = await api.get('/species/')
+  speciesOptions.value = res.data
 }
 
 async function loadPatientPhoto() {
-  if (!patient.value?.id) return;
+  if (!patient.value?.id) return
   try {
     const res = await api.get(`/patients/${patient.value.id}/photo`, {
-      responseType: "blob",
-    });
-    patientPhotoUrl.value = URL.createObjectURL(res.data);
-  } catch (err) {
-    patientPhotoUrl.value = null;
+      responseType: 'blob',
+    })
+    patientPhotoUrl.value = URL.createObjectURL(res.data)
+  } catch (_err) {
+    patientPhotoUrl.value = null
   }
 }
 
 function triggerPhotoSelect() {
-  photoInput.value?.click();
+  photoInput.value?.click()
 }
 
 async function uploadPatientPhoto(event: Event) {
-  if (!patient.value?.id) return;
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-  uploadingPhoto.value = true;
+  if (!patient.value?.id) return
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  uploadingPhoto.value = true
   try {
-    const form = new FormData();
-    form.append("file", file);
+    const form = new FormData()
+    form.append('file', file)
     await api.post(`/patients/${patient.value.id}/photo`, form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    await loadPatientPhoto();
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    await loadPatientPhoto()
   } finally {
-    uploadingPhoto.value = false;
-    input.value = "";
+    uploadingPhoto.value = false
+    input.value = ''
   }
 }
 </script>
 
 <template>
   <div v-if="patient">
-  <h2 class="flex align-items-center gap-2">
-    <span v-if="!isEditing">{{ patient.name }}</span>
-    <InputText
-      v-else
-      v-model="editablePatient.name"
-      placeholder="Name"
-    />
-                  <Tag v-if="!isEditing" :value="speciesDisplayName" />
-    <Dropdown
-      v-else
-      v-model="editablePatient.species_id"
-      :options="speciesOptions"
-      optionLabel="name"
-      optionValue="id"
-      placeholder="Select species"
-    />
-                  <Button
-                    :label="isEditing ? 'Save' : 'Edit patient'"
-                    :loading="savingAll"
-                    @click="isEditing ? savePatientAll() : startEdit()"
-                    size="small"
-                  />
-  </h2>
+    <h2 class="flex align-items-center gap-2">
+      <span v-if="!isEditing">{{ patient.name }}</span>
+      <InputText v-else v-model="editablePatient.name" placeholder="Name" />
+      <Tag v-if="!isEditing" :value="speciesDisplayName" />
+      <Dropdown
+        v-else
+        v-model="editablePatient.species_id"
+        :options="speciesOptions"
+        optionLabel="name"
+        optionValue="id"
+        placeholder="Select species"
+      />
+      <Button
+        :label="isEditing ? 'Save' : 'Edit patient'"
+        :loading="savingAll"
+        @click="isEditing ? savePatientAll() : startEdit()"
+        size="small"
+      />
+    </h2>
     <div class="patient-layout">
       <div class="patient-left">
         <Card>
@@ -260,11 +246,7 @@ async function uploadPatientPhoto(event: Event) {
             <div class="flex flex-column md:flex-row gap-4">
               <div class="flex flex-column align-items-center gap-3">
                 <div class="photo-circle">
-                  <img
-                    v-if="patientPhotoUrl"
-                    :src="patientPhotoUrl"
-                    alt="Patient"
-                  />
+                  <img v-if="patientPhotoUrl" :src="patientPhotoUrl" alt="Patient" />
                   <div v-else class="photo-placeholder">No photo</div>
                 </div>
                 <div v-if="isEditing">
@@ -285,26 +267,21 @@ async function uploadPatientPhoto(event: Event) {
               </div>
               <div class="flex-1">
                 <p v-if="owner">
-                  Owner: {{ owner.first_name }} {{ owner.last_name }} ({{
-                    owner.email
-                  }}, {{ owner.phone }})
+                  Owner: {{ owner.first_name }} {{ owner.last_name }} ({{ owner.email }},
+                  {{ owner.phone }})
                 </p>
                 <p v-else>Loading owner...</p>
 
                 <div class="mt-3 flex flex-column gap-2">
                   <div class="flex flex-wrap align-items-center gap-2">
                     <label class="w-8rem">Breed</label>
-                    <span v-if="!isEditing">{{ patient.breed || "-" }}</span>
-                    <InputText
-                      v-else
-                      v-model="editablePatient.breed"
-                      placeholder="Breed"
-                    />
+                    <span v-if="!isEditing">{{ patient.breed || '-' }}</span>
+                    <InputText v-else v-model="editablePatient.breed" placeholder="Breed" />
                   </div>
 
                   <div class="flex flex-wrap align-items-center gap-2">
                     <label class="w-8rem">Birth Date</label>
-                    <span v-if="!isEditing">{{ patient.birth_date || "-" }}</span>
+                    <span v-if="!isEditing">{{ patient.birth_date || '-' }}</span>
                     <DatePicker
                       v-else
                       v-model="editablePatient.birth_date"
@@ -316,7 +293,7 @@ async function uploadPatientPhoto(event: Event) {
 
                   <div class="flex flex-wrap align-items-center gap-2">
                     <label class="w-8rem">Sex</label>
-                    <span v-if="!isEditing">{{ patient.sex || "unknown" }}</span>
+                    <span v-if="!isEditing">{{ patient.sex || 'unknown' }}</span>
                     <Dropdown
                       v-else
                       v-model="editablePatient.sex"
@@ -329,7 +306,7 @@ async function uploadPatientPhoto(event: Event) {
 
                   <div class="flex flex-wrap align-items-center gap-2">
                     <label class="w-8rem">Weight (kg)</label>
-                    <span v-if="!isEditing">{{ patient.weight ?? "-" }}</span>
+                    <span v-if="!isEditing">{{ patient.weight ?? '-' }}</span>
                     <InputNumber
                       v-else
                       v-model="editablePatient.weight"
@@ -342,7 +319,7 @@ async function uploadPatientPhoto(event: Event) {
                   <div class="flex flex-wrap align-items-center gap-2">
                     <label class="w-8rem">Microchip</label>
                     <span v-if="!isEditing">
-                      {{ patient.microchip_number || "-" }}
+                      {{ patient.microchip_number || '-' }}
                     </span>
                     <InputText
                       v-else
@@ -354,7 +331,7 @@ async function uploadPatientPhoto(event: Event) {
 
                 <div class="mt-3">
                   <label class="block mb-2">Comment:</label>
-                  <p v-if="!isEditing">{{ patient.comment || "-" }}</p>
+                  <p v-if="!isEditing">{{ patient.comment || '-' }}</p>
                   <Textarea
                     v-else
                     v-model="editablePatient.comment"
@@ -372,11 +349,7 @@ async function uploadPatientPhoto(event: Event) {
       <div class="patient-right">
         <div class="orders-header">
           <h3>Orders</h3>
-          <Button
-            label="Create a new order"
-            size="small"
-            @click="showOrderForm = !showOrderForm"
-          />
+          <Button label="Create a new order" size="small" @click="showOrderForm = !showOrderForm" />
         </div>
 
         <Card v-if="showOrderForm">
@@ -427,25 +400,20 @@ async function uploadPatientPhoto(event: Event) {
               </div>
 
               <div style="margin-top: 1rem">
-                <p>Comment: {{ o.comment || "N/A" }}</p>
+                <p>Comment: {{ o.comment || 'N/A' }}</p>
 
                 <div class="mb-3">
                   <b>Tests:</b>&nbsp;
-                <span
-                  v-for="(run, index) in o.test_runs || []"
-                  :key="run.id"
-                >
-                  {{ testLabel(run.test_catalog_id) }}
-                  <span v-if="Number(index) < (o.test_runs?.length || 0) - 1">
-                    |
+                  <span v-for="(run, index) in o.test_runs || []" :key="run.id">
+                    {{ testLabel(run.test_catalog_id) }}
+                    <span v-if="Number(index) < (o.test_runs?.length || 0) - 1"> | </span>
                   </span>
-                </span>
                 </div>
 
                 <div>
                   <b>Services:</b>
                   <div v-for="sr in o.service_runs" :key="sr.id">
-                     🩺 {{ serviceLabel(sr.service_catalog_id) }}
+                    🩺 {{ serviceLabel(sr.service_catalog_id) }}
                   </div>
                 </div>
               </div>

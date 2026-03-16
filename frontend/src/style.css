@@ -5,15 +5,13 @@
 }
 
 /* Make form controls expand to fill available space */
-.surface-card > .flex.flex-wrap.gap-2.align-items-center > :is(
-    .p-inputtext,
-    .p-inputnumber,
-    .p-dropdown,
-    .p-multiselect,
-    .p-datepicker,
-    .p-inputtextarea
-  ),
-.p-card .p-card-content > .flex.flex-wrap.gap-2.align-items-center > :is(
+.surface-card
+  > .flex.flex-wrap.gap-2.align-items-center
+  > :is(.p-inputtext, .p-inputnumber, .p-dropdown, .p-multiselect, .p-datepicker, .p-inputtextarea),
+.p-card
+  .p-card-content
+  > .flex.flex-wrap.gap-2.align-items-center
+  > :is(
     .p-inputtext,
     .p-inputnumber,
     .p-dropdown,

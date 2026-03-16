@@ -1,9 +1,9 @@
-import axios from "axios"
+import axios from 'axios'
 
 // Centralized Axios instance
-const API_BASE_URL = "http://127.0.0.1:8000"
-const ACCESS_TOKEN_KEY = "token"
-const REFRESH_TOKEN_KEY = "refresh_token"
+const API_BASE_URL = 'http://127.0.0.1:8000'
+const ACCESS_TOKEN_KEY = 'token'
+const REFRESH_TOKEN_KEY = 'refresh_token'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -22,10 +22,10 @@ async function refreshAccessToken() {
   const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
   if (!refreshToken) {
     clearTokens()
-    throw new Error("Missing refresh token")
+    throw new Error('Missing refresh token')
   }
   try {
-    const response = await refreshClient.post("/auth/refresh", { refresh_token: refreshToken })
+    const response = await refreshClient.post('/auth/refresh', { refresh_token: refreshToken })
     const newAccessToken = response.data.access_token
     const newRefreshToken = response.data.refresh_token
     localStorage.setItem(ACCESS_TOKEN_KEY, newAccessToken)
@@ -56,8 +56,8 @@ api.interceptors.response.use(
     if (error.response?.status !== 401) {
       return Promise.reject(error)
     }
-    const url = originalRequest.url || ""
-    if (url.includes("/auth/token") || url.includes("/auth/refresh")) {
+    const url = originalRequest.url || ''
+    if (url.includes('/auth/token') || url.includes('/auth/refresh')) {
       return Promise.reject(error)
     }
     originalRequest._retry = true

@@ -1,185 +1,183 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { useRoute } from "vue-router";
-import api from "../api/http";
-import Button from "primevue/button";
-import Card from "primevue/card";
-import DataTable from "primevue/datatable";
-import Column from "primevue/column";
-import Tag from "primevue/tag";
-import InputText from "primevue/inputtext";
-import Textarea from "primevue/textarea";
-import Dropdown from "primevue/dropdown";
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import api from '../api/http'
+import Button from 'primevue/button'
+import Card from 'primevue/card'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
+import Tag from 'primevue/tag'
+import InputText from 'primevue/inputtext'
+import Textarea from 'primevue/textarea'
+import Dropdown from 'primevue/dropdown'
 
-const route = useRoute();
-const patient = ref<any>(null);
-const owner = ref<any>(null);
-const order = ref<any>(null);
-const tests = ref<any[]>([]);
-const services = ref<any[]>([]);
-const specimenTypes = ref<Record<number, any>>({});
-const tubeTypes = ref<Record<number, any>>({});
-const orderComment = ref("");
-const orderUrgency = ref("ROUTINE");
-const savingOrderComment = ref(false);
-const savingOrderUrgency = ref(false);
-const editingUrgency = ref(false);
-const editingResultId = ref<number | null>(null);
-const editResult = ref<any>({});
-const printingSpecimens = ref<Record<string, boolean>>({});
+const route = useRoute()
+const patient = ref<any>(null)
+const owner = ref<any>(null)
+const order = ref<any>(null)
+const tests = ref<any[]>([])
+const services = ref<any[]>([])
+const specimenTypes = ref<Record<number, any>>({})
+const tubeTypes = ref<Record<number, any>>({})
+const orderComment = ref('')
+const orderUrgency = ref('ROUTINE')
+const savingOrderComment = ref(false)
+const savingOrderUrgency = ref(false)
+const editingUrgency = ref(false)
+const editingResultId = ref<number | null>(null)
+const editResult = ref<any>({})
+const printingSpecimens = ref<Record<string, boolean>>({})
 const urgencyOptions = [
-  { label: "Routine", value: "ROUTINE" },
-  { label: "Urgent", value: "URGENT" },
-  { label: "STAT", value: "STAT" },
-];
+  { label: 'Routine', value: 'ROUTINE' },
+  { label: 'Urgent', value: 'URGENT' },
+  { label: 'STAT', value: 'STAT' },
+]
 
 async function load() {
-  const id = route.params.id;
+  const id = route.params.id
 
   // order loading
-  const orderRes = await api.get(`/orders/${id}`);
-  order.value = orderRes.data;
-  orderComment.value = order.value?.comment || "";
-  orderUrgency.value = order.value?.urgency || "ROUTINE";
-  await loadSpecimenTypes(order.value?.specimens);
-  await loadTubeTypes();
+  const orderRes = await api.get(`/orders/${id}`)
+  order.value = orderRes.data
+  orderComment.value = order.value?.comment || ''
+  orderUrgency.value = order.value?.urgency || 'ROUTINE'
+  await loadSpecimenTypes(order.value?.specimens)
+  await loadTubeTypes()
 
   // patient loading
   if (order.value.patient_id) {
     try {
-      const patientRes = await api.get(`/patients/${order.value.patient_id}`);
-      patient.value = patientRes.data;
+      const patientRes = await api.get(`/patients/${order.value.patient_id}`)
+      patient.value = patientRes.data
     } catch (err) {
-      console.error("Failed to load patient:", err);
-      owner.value = null;
+      console.error('Failed to load patient:', err)
+      owner.value = null
     }
   }
 
   // owner loading
-  const ownerRes = await api.get(`/owners/${patient.value.owner_id}`);
-  owner.value = ownerRes.data;
+  const ownerRes = await api.get(`/owners/${patient.value.owner_id}`)
+  owner.value = ownerRes.data
 
   // tests/services loading
-  const testsRes = await api.get(`/tests/`);
-  tests.value = testsRes.data;
+  const testsRes = await api.get(`/tests/`)
+  tests.value = testsRes.data
 
-  const servicesRes = await api.get(`/services/`);
-  services.value = servicesRes.data;
+  const servicesRes = await api.get(`/services/`)
+  services.value = servicesRes.data
 }
 
-onMounted(load);
+onMounted(load)
 
 function testLabel(testCatalogId: number) {
-  const test = tests.value.find((t) => t.id === testCatalogId);
-  return test ? test.code || test.name : testCatalogId;
+  const test = tests.value.find((t) => t.id === testCatalogId)
+  return test ? test.code || test.name : testCatalogId
 }
 
 function serviceLabel(serviceCatalogId: number) {
-  const service = services.value.find((s) => s.id === serviceCatalogId);
-  return service ? service.name : serviceCatalogId;
+  const service = services.value.find((s) => s.id === serviceCatalogId)
+  return service ? service.name : serviceCatalogId
 }
 
 async function loadSpecimenTypes(specimens?: any[]) {
-  if (!Array.isArray(specimens) || specimens.length === 0) return;
+  if (!Array.isArray(specimens) || specimens.length === 0) return
   const ids = Array.from(
     new Set(
       specimens
         .map((specimen) => specimen.specimen_type_id)
-        .filter((specimenTypeId: number) => Number.isFinite(specimenTypeId))
-    )
-  );
-  const missingIds = ids.filter((id) => !specimenTypes.value[id]);
-  if (missingIds.length === 0) return;
+        .filter((specimenTypeId: number) => Number.isFinite(specimenTypeId)),
+    ),
+  )
+  const missingIds = ids.filter((id) => !specimenTypes.value[id])
+  if (missingIds.length === 0) return
   await Promise.all(
     missingIds.map(async (specimenTypeId) => {
-      const res = await api.get(`/specimens/${specimenTypeId}`);
-      const data = Array.isArray(res.data) ? res.data[0] : res.data;
+      const res = await api.get(`/specimens/${specimenTypeId}`)
+      const data = Array.isArray(res.data) ? res.data[0] : res.data
       if (data) {
-        specimenTypes.value[specimenTypeId] = data;
+        specimenTypes.value[specimenTypeId] = data
       }
-    })
-  );
+    }),
+  )
 }
 
 async function loadTubeTypes() {
-  if (Object.keys(tubeTypes.value).length > 0) return;
-  const res = await api.get(`/tubes/`);
-  const tubeMap: Record<number, any> = {};
+  if (Object.keys(tubeTypes.value).length > 0) return
+  const res = await api.get(`/tubes/`)
+  const tubeMap: Record<number, any> = {}
   for (const tube of res.data || []) {
-    tubeMap[tube.id] = tube;
+    tubeMap[tube.id] = tube
   }
-  tubeTypes.value = tubeMap;
+  tubeTypes.value = tubeMap
 }
 
 function specimenTypeCode(specimenTypeId: number) {
-  return specimenTypes.value[specimenTypeId]?.code || "N/A";
+  return specimenTypes.value[specimenTypeId]?.code || 'N/A'
 }
 
 function specimenTypeName(specimenTypeId: number) {
-  return specimenTypes.value[specimenTypeId]?.name || "N/A";
+  return specimenTypes.value[specimenTypeId]?.name || 'N/A'
 }
 
 function tubeTypeLabel(specimenTypeId: number) {
-  const tubeTypeId = specimenTypes.value[specimenTypeId]?.tube_type_id;
-  const tubeType = tubeTypeId ? tubeTypes.value[tubeTypeId] : null;
-  return tubeType?.name || tubeType?.code || "N/A";
+  const tubeTypeId = specimenTypes.value[specimenTypeId]?.tube_type_id
+  const tubeType = tubeTypeId ? tubeTypes.value[tubeTypeId] : null
+  return tubeType?.name || tubeType?.code || 'N/A'
 }
 
 function specimenStatus(specimenId: string) {
-  const specimen = order.value?.specimens?.find(
-    (s: any) => s.specimen_id === specimenId
-  );
-  return specimen?.status || "N/A";
+  const specimen = order.value?.specimens?.find((s: any) => s.specimen_id === specimenId)
+  return specimen?.status || 'N/A'
 }
 
 function urgencySeverity(urgency?: string) {
-  if (urgency === "STAT") return "danger";
-  if (urgency === "URGENT") return "warning";
-  return "secondary";
+  if (urgency === 'STAT') return 'danger'
+  if (urgency === 'URGENT') return 'warning'
+  return 'secondary'
 }
 
 function statusSeverity(status?: string): string {
-  if (status === "RECEIVED") return "success";
-  if (status === "SENT") return "warning";
-  if (status === "COLLECTED") return "warning";
-  if (status === "NEW") return "info";
-  return "secondary";
+  if (status === 'RECEIVED') return 'success'
+  if (status === 'SENT') return 'warning'
+  if (status === 'COLLECTED') return 'warning'
+  if (status === 'NEW') return 'info'
+  return 'secondary'
 }
 
 function formatDateTime(value?: string | Date | null) {
-  if (!value) return "N/A";
-  const date = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleString();
+  if (!value) return 'N/A'
+  const date = typeof value === 'string' ? new Date(value) : value
+  if (Number.isNaN(date.getTime())) return 'N/A'
+  return date.toLocaleString()
 }
 
 function isLastRun(index: number | string, runs: any[] | undefined) {
-  const numericIndex = typeof index === "string" ? Number(index) : index;
-  if (!Array.isArray(runs) || Number.isNaN(numericIndex)) return true;
-  return numericIndex >= runs.length - 1;
+  const numericIndex = typeof index === 'string' ? Number(index) : index
+  if (!Array.isArray(runs) || Number.isNaN(numericIndex)) return true
+  return numericIndex >= runs.length - 1
 }
 
 function normalizeResultField(value: string | null | undefined) {
-  if (value === "") return null;
-  return value ?? null;
+  if (value === '') return null
+  return value ?? null
 }
 
 function startEditResult(result: any) {
-  editingResultId.value = result.id;
+  editingResultId.value = result.id
   editResult.value = {
-    value: result.value ?? "",
-    units: result.units ?? "",
-    flags: result.flags ?? "",
-    reference_range: result.reference_range ?? "",
-    abnormal_flag: result.abnormal_flag ?? "",
-    comment: result.comment ?? "",
-    completed_at: result.completed_at ?? "",
-  };
+    value: result.value ?? '',
+    units: result.units ?? '',
+    flags: result.flags ?? '',
+    reference_range: result.reference_range ?? '',
+    abnormal_flag: result.abnormal_flag ?? '',
+    comment: result.comment ?? '',
+    completed_at: result.completed_at ?? '',
+  }
 }
 
 function cancelEditResult() {
-  editingResultId.value = null;
-  editResult.value = {};
+  editingResultId.value = null
+  editResult.value = {}
 }
 
 async function saveEditResult(resultId: number) {
@@ -191,104 +189,105 @@ async function saveEditResult(resultId: number) {
     abnormal_flag: normalizeResultField(editResult.value.abnormal_flag),
     comment: normalizeResultField(editResult.value.comment),
     completed_at: normalizeResultField(editResult.value.completed_at),
-  };
-  await api.patch(`/results/${resultId}`, payload);
-  editingResultId.value = null;
-  editResult.value = {};
-  await load();
+  }
+  await api.patch(`/results/${resultId}`, payload)
+  editingResultId.value = null
+  editResult.value = {}
+  await load()
 }
 
 async function toggleVerifyResult(resultId: number) {
-  await api.post(`/results/${resultId}/verify`);
-  await load();
+  await api.post(`/results/${resultId}/verify`)
+  await load()
 }
 
 async function collectSpecimen(specimenId: string) {
-  await api.patch(`/orders/barcode/${specimenId}/collect`);
-  await load();
+  await api.patch(`/orders/barcode/${specimenId}/collect`)
+  await load()
 }
 
 async function receiveSpecimen(specimenId: string) {
-  await api.patch(`/orders/barcode/${specimenId}/receive`);
-  await load();
+  await api.patch(`/orders/barcode/${specimenId}/receive`)
+  await load()
 }
 
 async function printSpecimen(specimenId: string) {
-  printingSpecimens.value[specimenId] = true;
+  printingSpecimens.value[specimenId] = true
   try {
-    await api.patch(`/orders/barcode/${specimenId}/print`);
-    await load();
+    await api.patch(`/orders/barcode/${specimenId}/print`)
+    await load()
   } finally {
-    printingSpecimens.value[specimenId] = false;
+    printingSpecimens.value[specimenId] = false
   }
 }
 
 // Archive the order and update only the archived flag
 async function archiveOrder(id: number) {
-  const res = await api.patch(`/orders/${id}/archive`);
-  order.value.archived = res.data.archived;
+  const res = await api.patch(`/orders/${id}/archive`)
+  order.value.archived = res.data.archived
 }
 
 async function saveOrderComment() {
-  if (!order.value) return;
-  savingOrderComment.value = true;
+  if (!order.value) return
+  savingOrderComment.value = true
   try {
     const res = await api.patch(`/orders/${order.value.id}`, {
       comment: orderComment.value || null,
-    });
-    order.value = res.data;
-    orderComment.value = order.value?.comment || "";
+    })
+    order.value = res.data
+    orderComment.value = order.value?.comment || ''
   } finally {
-    savingOrderComment.value = false;
+    savingOrderComment.value = false
   }
 }
 
 async function saveOrderUrgency() {
-  if (!order.value) return;
-  if (!orderUrgency.value) return;
-  savingOrderUrgency.value = true;
+  if (!order.value) return
+  if (!orderUrgency.value) return
+  savingOrderUrgency.value = true
   try {
     const res = await api.patch(`/orders/${order.value.id}`, {
       urgency: orderUrgency.value,
-    });
-    order.value = res.data;
-    orderUrgency.value = order.value?.urgency || "ROUTINE";
-    editingUrgency.value = false;
+    })
+    order.value = res.data
+    orderUrgency.value = order.value?.urgency || 'ROUTINE'
+    editingUrgency.value = false
   } finally {
-    savingOrderUrgency.value = false;
+    savingOrderUrgency.value = false
   }
 }
 
 function startEditUrgency() {
-  editingUrgency.value = true;
+  editingUrgency.value = true
 }
 
 function cancelEditUrgency() {
-  editingUrgency.value = false;
-  orderUrgency.value = order.value?.urgency || "ROUTINE";
+  editingUrgency.value = false
+  orderUrgency.value = order.value?.urgency || 'ROUTINE'
 }
 </script>
 
 <template>
   <div v-if="patient" class="flex flex-column gap-3">
-        <h2>Order #{{ order.id }}
-        <Tag
-          :value="order.archived ? 'Archived' : 'Active'"
-          :severity="order.archived ? 'secondary' : 'success'"
-          class="ml-2"
-        />
-        <Button
-          :label="order.archived ? 'Unarchive' : 'Archive'"
-          size="small"
-          @click="archiveOrder(order.id)"
-          class="ml-2"
-        />
-        </h2>
+    <h2>
+      Order #{{ order.id }}
+      <Tag
+        :value="order.archived ? 'Archived' : 'Active'"
+        :severity="order.archived ? 'secondary' : 'success'"
+        class="ml-2"
+      />
+      <Button
+        :label="order.archived ? 'Unarchive' : 'Archive'"
+        size="small"
+        @click="archiveOrder(order.id)"
+        class="ml-2"
+      />
+    </h2>
     <Card>
-
       <template #content>
         <p>Created: {{ new Date(order.created_at).toLocaleString() }}</p>
-        <p><div class="flex align-items-center gap-2">
+        <p></p>
+        <div class="flex align-items-center gap-2">
           <span>Urgency:</span>
           <Tag
             v-if="!editingUrgency"
@@ -324,18 +323,15 @@ function cancelEditUrgency() {
             severity="secondary"
             @click="cancelEditUrgency"
           />
-        </div></p>
+        </div>
         <p v-if="patient.name">
           Patient:
-          <a :href="`/patients/${order.patient_id}`">{{ patient.name }}</a> ({{
-            patient.species
-          }})
+          <a :href="`/patients/${order.patient_id}`">{{ patient.name }}</a> ({{ patient.species }})
         </p>
         <p v-if="patient.breed">Breed: {{ patient.breed }}</p>
         <p v-if="patient.birth_date">Birth Date: {{ patient.birth_date }}</p>
         <p v-if="owner">
-          Owner: {{ owner.first_name }} {{ owner.last_name }} ({{ owner.email }},
-          {{ owner.phone }})
+          Owner: {{ owner.first_name }} {{ owner.last_name }} ({{ owner.email }}, {{ owner.phone }})
         </p>
         <p v-else>Loading owner...</p>
       </template>
@@ -346,11 +342,7 @@ function cancelEditUrgency() {
         <label class="block mb-2">Comment:</label>
         <Textarea v-model="orderComment" rows="3" autoResize class="w-full" />
         <div class="mt-2">
-          <Button
-            label="Save"
-            :loading="savingOrderComment"
-            @click="saveOrderComment"
-          />
+          <Button label="Save" :loading="savingOrderComment" @click="saveOrderComment" />
         </div>
       </template>
     </Card>
@@ -378,7 +370,6 @@ function cancelEditUrgency() {
           <Column header="Status">
             <template #body="{ data }">
               <Tag :value="data.status" :severity="statusSeverity(data.status)" />
-
             </template>
           </Column>
           <Column header="Actions">
@@ -429,7 +420,12 @@ function cancelEditUrgency() {
                 <td>{{ testLabel(run.test_catalog_id) }}</td>
                 <td>{{ run.specimen_id }}</td>
                 <td><Tag :value="run.status" :severity="statusSeverity(run.status)" /></td>
-                <td><Tag :value="specimenStatus(run.specimen_id)" :severity="statusSeverity(specimenStatus(run.specimen_id))" /></td>
+                <td>
+                  <Tag
+                    :value="specimenStatus(run.specimen_id)"
+                    :severity="statusSeverity(specimenStatus(run.specimen_id))"
+                  />
+                </td>
               </tr>
               <tr>
                 <td colspan="4">
@@ -442,7 +438,7 @@ function cancelEditUrgency() {
                             v-model="editResult.value"
                             placeholder="Value"
                           />
-                          <span v-else>{{ data.value || "-" }}</span>
+                          <span v-else>{{ data.value || '-' }}</span>
                         </template>
                       </Column>
                       <Column header="Units">
@@ -452,7 +448,7 @@ function cancelEditUrgency() {
                             v-model="editResult.units"
                             placeholder="Units"
                           />
-                          <span v-else>{{ data.units || "-" }}</span>
+                          <span v-else>{{ data.units || '-' }}</span>
                         </template>
                       </Column>
                       <Column header="Flags">
@@ -462,7 +458,7 @@ function cancelEditUrgency() {
                             v-model="editResult.flags"
                             placeholder="Flags"
                           />
-                          <span v-else>{{ data.flags || "-" }}</span>
+                          <span v-else>{{ data.flags || '-' }}</span>
                         </template>
                       </Column>
                       <Column header="Ref Range">
@@ -472,7 +468,7 @@ function cancelEditUrgency() {
                             v-model="editResult.reference_range"
                             placeholder="Reference range"
                           />
-                          <span v-else>{{ data.reference_range || "-" }}</span>
+                          <span v-else>{{ data.reference_range || '-' }}</span>
                         </template>
                       </Column>
                       <Column header="Abnormal">
@@ -482,12 +478,12 @@ function cancelEditUrgency() {
                             v-model="editResult.abnormal_flag"
                             placeholder="Abnormal flag"
                           />
-                          <span v-else>{{ data.abnormal_flag || "-" }}</span>
+                          <span v-else>{{ data.abnormal_flag || '-' }}</span>
                         </template>
                       </Column>
                       <Column header="Verified By">
                         <template #body="{ data }">
-                          <span>{{ data.verified_by ?? "-" }}</span>
+                          <span>{{ data.verified_by ?? '-' }}</span>
                         </template>
                       </Column>
                       <Column header="Verified At">
@@ -502,7 +498,7 @@ function cancelEditUrgency() {
                             v-model="editResult.comment"
                             placeholder="Comment"
                           />
-                          <span v-else>{{ data.comment || "-" }}</span>
+                          <span v-else>{{ data.comment || '-' }}</span>
                         </template>
                       </Column>
                       <Column header="Completed">
@@ -553,9 +549,7 @@ function cancelEditUrgency() {
                 </td>
               </tr>
               <tr v-if="!isLastRun(index, order?.test_runs)">
-                <td colspan="4">
-                  &nbsp;
-                </td>
+                <td colspan="4">&nbsp;</td>
               </tr>
             </template>
           </tbody>
@@ -580,9 +574,7 @@ function cancelEditUrgency() {
         </DataTable>
       </template>
     </Card>
-
   </div>
-
 </template>
 
 <style scoped>
