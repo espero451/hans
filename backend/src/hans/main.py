@@ -9,6 +9,7 @@ from hans.services.routers import router as services_router
 from hans.specimens.routers import router as specimens_router
 from hans.tubes.routers import router as tubes_router
 from hans.instruments import router as instruments_router
+from hans.dashboard.routers import router as dashboard_router
 from hans.interfaces.dispatcher.api import router as dispatcher_router
 
 from hans.admin import build_admin
@@ -26,6 +27,7 @@ app.include_router(services_router)
 app.include_router(species_router)
 app.include_router(specimens_router)
 app.include_router(tubes_router)
+app.include_router(dashboard_router)
 app.include_router(instruments_router, tags=["instruments"])
 app.include_router(dispatcher_router, tags=["dispatcher"])
 
