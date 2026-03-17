@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     database_url: str
     secret_key: str
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 540  # 9 hours
+    access_token_expire_minutes: int = 20
     refresh_token_expire_minutes: int = 10080  # 7 days
     barcode_printer_ip: str = "127.0.0.1"
     barcode_printer_port: int = 9100

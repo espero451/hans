@@ -114,6 +114,12 @@ def _clear_login_failures(key: str) -> None:
 
 # --- DEPENDENCIES ----------------------------------------------------
 
+class AuthPrincipal(BaseModel):
+    # Auth payload extracted from access token claims.
+    id: int
+    username: str
+    role: str
+
 # FastAPI dependency to extract and validate the current user from a JWT.
 # Used by protected endpoints to enforce authentication.
 async def get_current_user(
@@ -139,11 +145,33 @@ async def get_current_user(
     return user
 
 
+async def get_current_principal(token: str = Depends(oauth2_scheme)) -> AuthPrincipal:
+    # Read identity and role directly from JWT claims.
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    if payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    uid = payload.get("uid")
+    username = payload.get("sub")
+    role = payload.get("role")
+    if uid is None or not username or not role:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        return AuthPrincipal(id=int(uid), username=str(username), role=str(role))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
 # --- Permissions -----------------------------------------------------
 
 # Enforce that the current user has an allowed role.
 def require_roles(*allowed_roles: str):
-    async def _require(user: User = Depends(get_current_user)):
+    async def _require(user: AuthPrincipal = Depends(get_current_principal)):
         if user.role not in allowed_roles:
             raise HTTPException(status_code=403, detail="Forbidden")
         return user
@@ -186,7 +214,7 @@ async def login(
         raise HTTPException(status_code=401, detail="Invalid credentials")
     _clear_login_failures(key)
     access_token = create_access_token(
-        {"sub": user.username},
+        {"sub": user.username, "uid": user.id, "role": user.role},
         timedelta(minutes=settings.access_token_expire_minutes),
     )
     refresh_token, refresh_jti = create_refresh_token(user.username)
@@ -217,7 +245,7 @@ async def refresh_tokens(payload: RefreshIn, db: AsyncSession = Depends(get_db))
     if not user or user.refresh_jti != refresh_jti:
         raise HTTPException(status_code=401, detail="Invalid token")
     access_token = create_access_token(
-        {"sub": user.username},
+        {"sub": user.username, "uid": user.id, "role": user.role},
         timedelta(minutes=settings.access_token_expire_minutes),
     )
     new_refresh_token, new_refresh_jti = create_refresh_token(user.username)
