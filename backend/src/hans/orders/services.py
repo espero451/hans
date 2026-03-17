@@ -1,7 +1,5 @@
 from datetime import datetime
 import asyncio
-from typing import Dict, List
-
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,7 +53,7 @@ async def create_order(data: OrderCreate, db: AsyncSession, user_id: int) -> Ord
     if len(service_catalogs) != len(service_ids):
         raise HTTPException(400, "One or more services not found")
 
-    specimen_map: Dict[int, str] = {}
+    specimen_map: dict[int, str] = {}
     for test in test_catalogs:
         if test.specimen_type_id in specimen_map:
             continue
@@ -101,7 +99,7 @@ async def load_order(order_id: int, db: AsyncSession) -> OrderRead:
     return OrderRead.model_validate(order)
 
 
-async def get_patient_orders(patient_id: int, db: AsyncSession) -> List[OrderRead]:
+async def get_patient_orders(patient_id: int, db: AsyncSession) -> list[OrderRead]:
     orders = await fetch_patient_orders(patient_id, db)
     return [OrderRead.model_validate(order) for order in orders]
 

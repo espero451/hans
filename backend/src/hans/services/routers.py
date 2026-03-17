@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,9 +14,9 @@ from .services import get_services as get_services_service
 router = APIRouter(prefix="/services", tags=["services"])
 
 
-@router.get("/", response_model=List[ServiceCatalogRead])
+@router.get("/", response_model=list[ServiceCatalogRead])
 async def get_services(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_staff_or_admin),
-) -> List[ServiceCatalogRead]:
+) -> list[ServiceCatalogRead]:
     return await get_services_service(db)

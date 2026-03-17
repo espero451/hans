@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
 
 import yaml
 
@@ -24,15 +23,15 @@ class ResponseConfig:
     include_patient: bool = True
     send_empty_on_missing: bool = False
 
-
+# todo: add generic type dict sfor checker
 @dataclass(frozen=True)
 class InterfaceConfig:
     interface_code: str
     server: ServerConfig
     frame: FrameConfig
-    delimiters: Dict
+    delimiters: dict
     response: ResponseConfig
-    translation: Dict
+    translation: dict
 
     @classmethod
     def load(cls, path: Path) -> "InterfaceConfig":

@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, File, UploadFile, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,21 +27,21 @@ router = APIRouter(prefix="/patients", tags=["patients"])
 species_router = APIRouter(prefix="/species", tags=["species"])
 
 
-@species_router.get("/", response_model=List[SpeciesRead])
+@species_router.get("/", response_model=list[SpeciesRead])
 async def get_species(
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_principal),
-) -> List[SpeciesRead]:
+) -> list[SpeciesRead]:
     return await get_species_service(db)
 
 
-# @router.get("/", response_model=List[PatientRead])
+# @router.get("/", response_model=list[PatientRead])
 # async def get_patients(
 #     db: AsyncSession = Depends(get_db),
 #     current_user: User = Depends(get_current_user),
 #     skip: int = 0,
 #     limit: int = 100,
-# ) -> List[PatientRead]:
+# ) -> list[PatientRead]:
 #     return await get_patients_service(skip, limit, db)
 
 @router.get("/", response_model=Page[PatientRead])

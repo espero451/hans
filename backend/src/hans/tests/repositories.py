@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +8,7 @@ from .models import TestCatalog
 
 # --- TEST QUERIES -----------------------------------------------------
 
-async def fetch_tests(db: AsyncSession) -> List[TestCatalog]:
+async def fetch_tests(db: AsyncSession) -> list[TestCatalog]:
     result = await db.execute(select(TestCatalog).order_by(TestCatalog.code))
     return result.scalars().all()
 

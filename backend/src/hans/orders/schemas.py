@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -12,8 +12,8 @@ from .models import OrderUrgency
 
 class OrderCreate(BaseModel):
     patient_id: int
-    test_catalog_ids: List[int] = []
-    service_catalog_ids: List[int] = []
+    test_catalog_ids: list[int] = []
+    service_catalog_ids: list[int] = []
     comment: Optional[str] = None
     urgency: OrderUrgency = OrderUrgency.ROUTINE
 
@@ -79,7 +79,7 @@ class TestRunRead(ORMModel):
     instrument_id: Optional[int] = None
     status: str
     price: float
-    results: List[ResultRead] = []
+    results: list[ResultRead] = []
 
 
 class ServiceRunRead(ORMModel):
@@ -99,9 +99,9 @@ class OrderRead(ORMModel):
     archived: bool
     urgency: OrderUrgency
     comment: Optional[str] = None
-    specimens: List[SpecimenRead] = []
-    test_runs: List[TestRunRead] = []
-    service_runs: List[ServiceRunRead] = []
+    specimens: list[SpecimenRead] = []
+    test_runs: list[TestRunRead] = []
+    service_runs: list[ServiceRunRead] = []
 
 
 class OrderArchivedStatusRead(ORMModel):

@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,9 +16,9 @@ from .services import (
 router = APIRouter(prefix="/tubes", tags=["tubes"])
 
 
-@router.get("/", response_model=List[TubeTypeRead])
+@router.get("/", response_model=list[TubeTypeRead])
 async def get_tube(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_staff_or_admin),
-) -> List[TubeTypeRead]:
+) -> list[TubeTypeRead]:
     return await get_tubes_service(db)

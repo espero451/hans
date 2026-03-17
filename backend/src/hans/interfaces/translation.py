@@ -2,15 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
 
 import yaml
 
 
 @dataclass(frozen=True)
 class TranslationTable:
-    lis_to_instrument: Dict[str, str]
-    instrument_to_lis: Dict[str, str]
+    lis_to_instrument: dict[str, str]
+    instrument_to_lis: dict[str, str]
 
     @classmethod
     def load(cls, path: Path) -> "TranslationTable":
@@ -19,8 +18,8 @@ class TranslationTable:
 
     @classmethod
     def from_data(cls, raw: dict) -> "TranslationTable":
-        lis_to_instrument: Dict[str, str] = {}
-        instrument_to_lis: Dict[str, str] = {}
+        lis_to_instrument: dict[str, str] = {}
+        instrument_to_lis: dict[str, str] = {}
 
         for entry in raw.get("tests", []):
             if not isinstance(entry, dict):

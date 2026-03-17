@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +8,7 @@ from .models import Patient, Species
 
 # --- PATIENT QUERIES --------------------------------------------------
 
-async def fetch_patients(skip: int, limit: int, db: AsyncSession) -> List[Patient]:
+async def fetch_patients(skip: int, limit: int, db: AsyncSession) -> list[Patient]:
     result = await db.execute(select(Patient).offset(skip).limit(limit).order_by(Patient.name))
     return result.scalars().all()
 
@@ -25,6 +25,6 @@ async def count_patients(db: AsyncSession) -> int:
 
 # --- SPECIES QUERIES --------------------------------------------------
 
-async def fetch_species(db: AsyncSession) -> List[Species]:
+async def fetch_species(db: AsyncSession) -> list[Species]:
     result = await db.execute(select(Species).order_by(Species.name))
     return result.scalars().all()

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +8,7 @@ from .models import Owner
 
 # --- OWNER QUERIES ----------------------------------------------------
 
-async def fetch_owners(skip: int, limit: int, db: AsyncSession) -> List[Owner]:
+async def fetch_owners(skip: int, limit: int, db: AsyncSession) -> list[Owner]:
     result = await db.execute(
         select(Owner).offset(skip).limit(limit).order_by(Owner.last_name, Owner.first_name)
     )

@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -81,12 +79,12 @@ async def archive_order(
     return order
 
 
-@router.get("/patients/{patient_id}/orders", response_model=List[OrderRead])
+@router.get("/patients/{patient_id}/orders", response_model=list[OrderRead])
 async def get_patient_orders(
     patient_id: int,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> List[OrderRead]:
+) -> list[OrderRead]:
     return await get_patient_orders_service(patient_id, db)
 
 

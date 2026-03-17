@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,7 +8,7 @@ from .models import TubeType
 
 # --- TUBE QUERIES -----------------------------------------------------
 
-async def fetch_tubes(db: AsyncSession) -> List[TubeType]:
+async def fetch_tubes(db: AsyncSession) -> list[TubeType]:
     result = await db.execute(select(TubeType).order_by(TubeType.id))
     return result.scalars().all()
 

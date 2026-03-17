@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -67,7 +67,7 @@ class WorkstationRead(ORMModel):
 
 router = APIRouter()
 
-@router.get("/instruments", response_model=List[InstrumentRead])
+@router.get("/instruments", response_model=list[InstrumentRead])
 async def get_instruments(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(select(Instrument).order_by(Instrument.name))
     return result.scalars().all()
@@ -107,7 +107,7 @@ async def delete_instrument(instrument_id: int, db: AsyncSession = Depends(get_d
     return {"ok": True}
 
 
-@router.get("/workstations", response_model=List[WorkstationRead])
+@router.get("/workstations", response_model=list[WorkstationRead])
 async def get_workstations(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(select(Workstation).order_by(Workstation.name))
     return result.scalars().all()

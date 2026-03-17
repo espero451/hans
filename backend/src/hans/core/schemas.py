@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Generic, TypeVar, List
+from typing import Generic, TypeVar
 
 class ORMModel(BaseModel):
     # Enable ORM object parsing for response schemas.
@@ -11,5 +11,5 @@ class ORMModel(BaseModel):
 T = TypeVar("T")
 
 class Page(BaseModel, Generic[T]):
-    items: List[T]
+    items: list[T]
     total: int
