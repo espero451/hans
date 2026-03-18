@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api/http'
 import Button from 'primevue/button'
@@ -15,7 +15,11 @@ const totalRecords = ref(0)
 const rows = ref(50)
 const loading = ref(false)
 const ownerSuggestions = ref<any[]>([])
+const filterOwnerSuggestions = ref<any[]>([])
 const selectedOwner = ref<any>(null)
+const filterName = ref('')
+const filterSpeciesId = ref<number | null>(null)
+const filterOwner = ref<any>(null)
 const name = ref('')
 const speciesId = ref<number | null>(null)
 const sex = ref('unknown')
@@ -37,8 +41,18 @@ async function loadPatients(event?: any) {
   const limit = event?.rows ?? rows.value
   loading.value = true
   try {
+    const params: any = { skip, limit }
+    if (filterName.value.trim()) {
+      params.q = filterName.value.trim()
+    }
+    if (filterSpeciesId.value) {
+      params.species_id = filterSpeciesId.value
+    }
+    if (filterOwner.value?.value) {
+      params.owner_id = filterOwner.value.value
+    }
     const res = await api.get('/patients/', {
-      params: { skip, limit },
+      params,
     })
     patients.value = res.data.items
     totalRecords.value = res.data.total
@@ -69,6 +83,30 @@ async function searchOwners(event: any) {
   }))
 }
 
+async function searchFilterOwners(event: any) {
+  if (!event.query || event.query.length < 2) {
+    filterOwnerSuggestions.value = []
+    return
+  }
+  const res = await api.get('/owners/', {
+    params: {
+      q: event.query,
+      limit: 20,
+    },
+  })
+  filterOwnerSuggestions.value = res.data.map((o: any) => ({
+    label: `${o.first_name} ${o.last_name}`,
+    value: o.id,
+  }))
+}
+
+function resetFilters() {
+  filterName.value = ''
+  filterSpeciesId.value = null
+  filterOwner.value = null
+  loadPatients({ first: 0, rows: rows.value })
+}
+
 // Add patient
 async function addPatient() {
   if (!name.value || !speciesId.value || !selectedOwner.value) return
@@ -95,6 +133,11 @@ onMounted(() => {
   loadPatients()
   // loadOwners();
   loadSpecies()
+})
+
+watch([filterName, filterSpeciesId, filterOwner], () => {
+  if (typeof filterOwner.value === 'string') return
+  loadPatients({ first: 0, rows: rows.value })
 })
 </script>
 
@@ -129,6 +172,30 @@ onMounted(() => {
           placeholder="Search owner"
         />
         <Button label="Add Patient" @click="addPatient" />
+      </div>
+    </div>
+
+    <div class="surface-card p-3 border-round-xl shadow-1">
+      <div class="flex flex-wrap gap-2 align-items-center">
+        <InputText v-model="filterName" placeholder="Filter name" />
+        <Dropdown
+          v-model="filterSpeciesId"
+          :options="speciesOptions"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Filter species"
+          showClear
+        />
+        <AutoComplete
+          v-model="filterOwner"
+          :suggestions="filterOwnerSuggestions"
+          optionLabel="label"
+          @complete="searchFilterOwners"
+          dropdown
+          forceSelection
+          placeholder="Filter owner"
+        />
+        <Button label="Reset" severity="secondary" @click="resetFilters" />
       </div>
     </div>
 

@@ -12,12 +12,18 @@ async def fetch_patients(
     skip: int,
     limit: int,
     q: str | None,
+    species_id: int | None,
+    owner_id: int | None,
     db: AsyncSession,
 ) -> list[Patient]:
     query = select(Patient)
     if q:
         # Filter patients by name directly in SQL.
         query = query.where(Patient.name.ilike(f"%{q}%"))
+    if species_id is not None:
+        query = query.where(Patient.species_id == species_id)
+    if owner_id is not None:
+        query = query.where(Patient.owner_id == owner_id)
     result = await db.execute(query.offset(skip).limit(limit).order_by(Patient.name))
     return result.scalars().all()
 
@@ -27,11 +33,20 @@ async def fetch_patient(patient_id: int, db: AsyncSession) -> Optional[Patient]:
     return result.scalar_one_or_none()
 
 
-async def count_patients(q: str | None, db: AsyncSession) -> int:
+async def count_patients(
+    q: str | None,
+    species_id: int | None,
+    owner_id: int | None,
+    db: AsyncSession,
+) -> int:
     query = select(func.count()).select_from(Patient)
     if q:
         # Keep total count aligned with the active search filter.
         query = query.where(Patient.name.ilike(f"%{q}%"))
+    if species_id is not None:
+        query = query.where(Patient.species_id == species_id)
+    if owner_id is not None:
+        query = query.where(Patient.owner_id == owner_id)
     result = await db.execute(query)
     return result.scalar_one()
 

@@ -34,10 +34,12 @@ async def get_patients(
     skip: int,
     limit: int,
     q: str | None,
+    species_id: int | None,
+    owner_id: int | None,
     db: AsyncSession,
 ) -> tuple[list[PatientRead], int]:
-    patients = await fetch_patients(skip, limit, q, db)
-    total = await count_patients(q, db)
+    patients = await fetch_patients(skip, limit, q, species_id, owner_id, db)
+    total = await count_patients(q, species_id, owner_id, db)
     items = [PatientRead.model_validate(p) for p in patients]
     return items, total
 
