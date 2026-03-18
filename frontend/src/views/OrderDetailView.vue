@@ -1,7 +1,18 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import api from '../api/http'
+import { getServices, getSpecimenType, getTests, getTubes } from '../api/catalogs'
+import {
+  collectSpecimen as collectSpecimenRequest,
+  getOrder,
+  printSpecimen as printSpecimenRequest,
+  receiveSpecimen as receiveSpecimenRequest,
+  toggleOrderArchive,
+  updateOrder,
+} from '../api/orders'
+import { getOwner } from '../api/owners'
+import { getPatient } from '../api/patients'
+import { toggleVerifyResult as toggleVerifyResultRequest, updateResult } from '../api/results'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import DataTable from 'primevue/datatable'
@@ -37,8 +48,7 @@ async function load() {
   const id = route.params.id
 
   // order loading
-  const orderRes = await api.get(`/orders/${id}`)
-  order.value = orderRes.data
+  order.value = await getOrder(String(id))
   orderComment.value = order.value?.comment || ''
   orderUrgency.value = order.value?.urgency || 'ROUTINE'
   await loadSpecimenTypes(order.value?.specimens)
@@ -47,8 +57,7 @@ async function load() {
   // patient loading
   if (order.value.patient_id) {
     try {
-      const patientRes = await api.get(`/patients/${order.value.patient_id}`)
-      patient.value = patientRes.data
+      patient.value = await getPatient(order.value.patient_id)
     } catch (err) {
       console.error('Failed to load patient:', err)
       owner.value = null
@@ -56,15 +65,21 @@ async function load() {
   }
 
   // owner loading
-  const ownerRes = await api.get(`/owners/${patient.value.owner_id}`)
-  owner.value = ownerRes.data
+  if (patient.value?.owner_id) {
+    try {
+      owner.value = await getOwner(patient.value.owner_id)
+    } catch (err) {
+      console.error('Failed to load owner:', err)
+      owner.value = null
+    }
+  } else {
+    owner.value = null
+  }
 
   // tests/services loading
-  const testsRes = await api.get(`/tests/`)
-  tests.value = testsRes.data
+  tests.value = await getTests()
 
-  const servicesRes = await api.get(`/services/`)
-  services.value = servicesRes.data
+  services.value = await getServices()
 }
 
 onMounted(load)
@@ -92,8 +107,8 @@ async function loadSpecimenTypes(specimens?: any[]) {
   if (missingIds.length === 0) return
   await Promise.all(
     missingIds.map(async (specimenTypeId) => {
-      const res = await api.get(`/specimens/${specimenTypeId}`)
-      const data = Array.isArray(res.data) ? res.data[0] : res.data
+      const raw = await getSpecimenType(specimenTypeId)
+      const data = Array.isArray(raw) ? raw[0] : raw
       if (data) {
         specimenTypes.value[specimenTypeId] = data
       }
@@ -103,9 +118,9 @@ async function loadSpecimenTypes(specimens?: any[]) {
 
 async function loadTubeTypes() {
   if (Object.keys(tubeTypes.value).length > 0) return
-  const res = await api.get(`/tubes/`)
   const tubeMap: Record<number, any> = {}
-  for (const tube of res.data || []) {
+  const tubes = await getTubes()
+  for (const tube of tubes || []) {
     tubeMap[tube.id] = tube
   }
   tubeTypes.value = tubeMap
@@ -190,31 +205,31 @@ async function saveEditResult(resultId: number) {
     comment: normalizeResultField(editResult.value.comment),
     completed_at: normalizeResultField(editResult.value.completed_at),
   }
-  await api.patch(`/results/${resultId}`, payload)
+  await updateResult(resultId, payload)
   editingResultId.value = null
   editResult.value = {}
   await load()
 }
 
 async function toggleVerifyResult(resultId: number) {
-  await api.post(`/results/${resultId}/verify`)
+  await toggleVerifyResultRequest(resultId)
   await load()
 }
 
 async function collectSpecimen(specimenId: string) {
-  await api.patch(`/orders/barcode/${specimenId}/collect`)
+  await collectSpecimenRequest(specimenId)
   await load()
 }
 
 async function receiveSpecimen(specimenId: string) {
-  await api.patch(`/orders/barcode/${specimenId}/receive`)
+  await receiveSpecimenRequest(specimenId)
   await load()
 }
 
 async function printSpecimen(specimenId: string) {
   printingSpecimens.value[specimenId] = true
   try {
-    await api.patch(`/orders/barcode/${specimenId}/print`)
+    await printSpecimenRequest(specimenId)
     await load()
   } finally {
     printingSpecimens.value[specimenId] = false
@@ -223,18 +238,18 @@ async function printSpecimen(specimenId: string) {
 
 // Archive the order and update only the archived flag
 async function archiveOrder(id: number) {
-  const res = await api.patch(`/orders/${id}/archive`)
-  order.value.archived = res.data.archived
+  const data = await toggleOrderArchive(id)
+  order.value.archived = data.archived
 }
 
 async function saveOrderComment() {
   if (!order.value) return
   savingOrderComment.value = true
   try {
-    const res = await api.patch(`/orders/${order.value.id}`, {
+    const data = await updateOrder(order.value.id, {
       comment: orderComment.value || null,
     })
-    order.value = res.data
+    order.value = data
     orderComment.value = order.value?.comment || ''
   } finally {
     savingOrderComment.value = false
@@ -246,10 +261,10 @@ async function saveOrderUrgency() {
   if (!orderUrgency.value) return
   savingOrderUrgency.value = true
   try {
-    const res = await api.patch(`/orders/${order.value.id}`, {
+    const data = await updateOrder(order.value.id, {
       urgency: orderUrgency.value,
     })
-    order.value = res.data
+    order.value = data
     orderUrgency.value = order.value?.urgency || 'ROUTINE'
     editingUrgency.value = false
   } finally {

@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import api from '../api/http'
+import { getServices, getTests } from '../api/catalogs'
+import { createOrder, getPatientOrders } from '../api/orders'
+import { getOwner } from '../api/owners'
+import {
+  getPatient,
+  getPatientPhoto,
+  getSpecies,
+  patchPatient,
+  uploadPatientPhoto as uploadPatientPhotoRequest,
+} from '../api/patients'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 // import Divider from "primevue/divider";
@@ -73,7 +82,7 @@ async function load() {
 async function addOrder() {
   if (!selectedTestIds.value.length && !selectedServiceIds.value.length) return
 
-  const res = await api.post('/orders/', {
+  const data = await createOrder({
     patient_id: patient.value.id,
     test_catalog_ids: selectedTestIds.value,
     service_catalog_ids: selectedServiceIds.value,
@@ -86,8 +95,8 @@ async function addOrder() {
   selectedServiceIds.value = []
   orderComment.value = ''
 
-  if (res.data?.id) {
-    await router.push(`/orders/${res.data.id}`)
+  if (data?.id) {
+    await router.push(`/orders/${data.id}`)
   }
 }
 
@@ -108,7 +117,7 @@ async function savePatientAll() {
     const birthDate = editablePatient.value.birth_date
       ? editablePatient.value.birth_date.toISOString().split('T')[0]
       : null
-    const res = await api.patch(`/patients/${patient.value.id}`, {
+    const data = await patchPatient(patient.value.id, {
       name: editablePatient.value.name || null,
       species_id: editablePatient.value.species_id ?? null,
       comment: editablePatient.value.comment || null,
@@ -118,7 +127,7 @@ async function savePatientAll() {
       microchip_number: editablePatient.value.microchip_number || null,
       birth_date: birthDate,
     })
-    patient.value = res.data
+    patient.value = data
     isEditing.value = false
   } finally {
     savingAll.value = false
@@ -143,12 +152,10 @@ function serviceLabel(serviceCatalogId: number) {
 
 async function loadPatient() {
   const id = route.params.id
-  const patientRes = await api.get(`/patients/${id}`)
-  patient.value = patientRes.data
+  patient.value = await getPatient(String(id))
   if (patient.value.owner_id) {
     try {
-      const ownerRes = await api.get(`/owners/${patient.value.owner_id}`)
-      owner.value = ownerRes.data
+      owner.value = await getOwner(patient.value.owner_id)
     } catch (err) {
       console.error('Failed to load owner:', err)
       owner.value = null
@@ -159,8 +166,7 @@ async function loadPatient() {
 async function loadOrders() {
   if (!patient.value?.id) return
   try {
-    const ordersRes = await api.get(`/patients/${patient.value.id}/orders`)
-    orders.value = ordersRes.data
+    orders.value = await getPatientOrders(patient.value.id)
   } catch (err) {
     console.error('Failed to load orders:', err)
     orders.value = []
@@ -168,27 +174,22 @@ async function loadOrders() {
 }
 
 async function loadTests() {
-  const testsRes = await api.get(`/tests/`)
-  tests.value = testsRes.data
+  tests.value = await getTests()
 }
 
 async function loadServices() {
-  const servicesRes = await api.get(`/services/`)
-  services.value = servicesRes.data
+  services.value = await getServices()
 }
 
 async function loadSpecies() {
-  const res = await api.get('/species/')
-  speciesOptions.value = res.data
+  speciesOptions.value = await getSpecies()
 }
 
 async function loadPatientPhoto() {
   if (!patient.value?.id) return
   try {
-    const res = await api.get(`/patients/${patient.value.id}/photo`, {
-      responseType: 'blob',
-    })
-    patientPhotoUrl.value = URL.createObjectURL(res.data)
+    const photoBlob = await getPatientPhoto(patient.value.id)
+    patientPhotoUrl.value = URL.createObjectURL(photoBlob)
   } catch (_err) {
     patientPhotoUrl.value = null
   }
@@ -207,9 +208,7 @@ async function uploadPatientPhoto(event: Event) {
   try {
     const form = new FormData()
     form.append('file', file)
-    await api.post(`/patients/${patient.value.id}/photo`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    await uploadPatientPhotoRequest(patient.value.id, form)
     await loadPatientPhoto()
   } finally {
     uploadingPhoto.value = false

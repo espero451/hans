@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import api from '../api/http'
+import {
+  getDispatcherStatus,
+  getDispatcherTrace,
+  restartDispatcher as restartDispatcherRequest,
+} from '../api/settings'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 
@@ -20,11 +24,11 @@ const dispatcherLastStoppedAt = ref<string | null>(null)
 
 async function loadDispatcherStatus() {
   try {
-    const res = await api.get('/settings/dispatcher/status')
-    dispatcherStatus.value = res.data.running ? 'running' : 'stopped'
-    dispatcherError.value = res.data.error || null
-    dispatcherLastStartedAt.value = res.data.last_started_at || null
-    dispatcherLastStoppedAt.value = res.data.last_stopped_at || null
+    const data = await getDispatcherStatus()
+    dispatcherStatus.value = data.running ? 'running' : 'stopped'
+    dispatcherError.value = data.error || null
+    dispatcherLastStartedAt.value = data.last_started_at || null
+    dispatcherLastStoppedAt.value = data.last_stopped_at || null
   } catch (_err) {
     dispatcherStatus.value = 'stopped'
     dispatcherError.value = 'Unable to load dispatcher status'
@@ -36,11 +40,11 @@ async function loadDispatcherStatus() {
 async function restartDispatcher() {
   dispatcherLoading.value = true
   try {
-    const res = await api.post('/settings/dispatcher/restart')
-    dispatcherStatus.value = res.data.running ? 'running' : 'stopped'
-    dispatcherError.value = res.data.error || null
-    dispatcherLastStartedAt.value = res.data.last_started_at || null
-    dispatcherLastStoppedAt.value = res.data.last_stopped_at || null
+    const data = await restartDispatcherRequest()
+    dispatcherStatus.value = data.running ? 'running' : 'stopped'
+    dispatcherError.value = data.error || null
+    dispatcherLastStartedAt.value = data.last_started_at || null
+    dispatcherLastStoppedAt.value = data.last_stopped_at || null
   } finally {
     dispatcherLoading.value = false
   }
@@ -77,11 +81,8 @@ async function openDispatcherTrace() {
   doc.body.appendChild(pre)
 
   try {
-    const res = await api.get('/settings/dispatcher/trace', {
-      responseType: 'text',
-    })
-
-    const traceText = typeof res.data === 'string' ? res.data : JSON.stringify(res.data, null, 2)
+    const traceData = await getDispatcherTrace()
+    const traceText = typeof traceData === 'string' ? traceData : JSON.stringify(traceData, null, 2)
 
     pre.textContent = traceText || 'No dispatcher trace available.'
   } catch {

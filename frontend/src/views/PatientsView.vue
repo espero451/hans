@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '../api/http'
+import { createPatient, getPatientsPage, getSpecies } from '../api/patients'
+import { searchOwnersByQuery } from '../api/owners'
 import Button from 'primevue/button'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
@@ -51,19 +52,16 @@ async function loadPatients(event?: any) {
     if (filterOwner.value?.value) {
       params.owner_id = filterOwner.value.value
     }
-    const res = await api.get('/patients/', {
-      params,
-    })
-    patients.value = res.data.items
-    totalRecords.value = res.data.total
+    const data = await getPatientsPage(params)
+    patients.value = data.items
+    totalRecords.value = data.total
   } finally {
     loading.value = false
   }
 }
 
 async function loadSpecies() {
-  const res = await api.get('/species/')
-  speciesOptions.value = res.data
+  speciesOptions.value = await getSpecies()
 }
 
 async function searchOwners(event: any) {
@@ -71,16 +69,7 @@ async function searchOwners(event: any) {
     ownerSuggestions.value = []
     return
   }
-  const res = await api.get('/owners/', {
-    params: {
-      q: event.query,
-      limit: 20,
-    },
-  })
-  ownerSuggestions.value = res.data.map((o: any) => ({
-    label: `${o.first_name} ${o.last_name}`,
-    value: o.id,
-  }))
+  ownerSuggestions.value = await searchOwnersByQuery(event.query, 20)
 }
 
 async function searchFilterOwners(event: any) {
@@ -88,16 +77,7 @@ async function searchFilterOwners(event: any) {
     filterOwnerSuggestions.value = []
     return
   }
-  const res = await api.get('/owners/', {
-    params: {
-      q: event.query,
-      limit: 20,
-    },
-  })
-  filterOwnerSuggestions.value = res.data.map((o: any) => ({
-    label: `${o.first_name} ${o.last_name}`,
-    value: o.id,
-  }))
+  filterOwnerSuggestions.value = await searchOwnersByQuery(event.query, 20)
 }
 
 function resetFilters() {
@@ -109,11 +89,16 @@ function resetFilters() {
 
 // Add patient
 async function addPatient() {
-  if (!name.value || !speciesId.value || !selectedOwner.value) return
+  const ownerId =
+    selectedOwner.value && typeof selectedOwner.value !== 'string'
+      ? selectedOwner.value.value
+      : null
+  if (!name.value || !speciesId.value || !ownerId) return
   if (!speciesName.value) return
-  const res = await api.post('/patients/', {
+  const data = await createPatient({
     name: name.value,
     species: speciesName.value,
+    owner_id: ownerId,
     species_id: speciesId.value,
     birth_date: birth_date.value ? birth_date.value.toISOString().split('T')[0] : null,
     sex: sex.value,
@@ -122,8 +107,8 @@ async function addPatient() {
   speciesId.value = null
   sex.value = 'unknown'
   birth_date.value = null
-  if (res.data?.id) {
-    await router.push(`/patients/${res.data.id}`)
+  if (data?.id) {
+    await router.push(`/patients/${data.id}`)
     return
   }
   loadPatients()

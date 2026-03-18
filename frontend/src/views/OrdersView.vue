@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '../api/http'
+import { searchOwnersByQuery } from '../api/owners'
+import { getOrdersPage } from '../api/orders'
+import { searchPatientsByName } from '../api/patients'
 import Button from 'primevue/button'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
@@ -78,16 +80,7 @@ async function searchOwners(event: { query?: string }) {
     ownerSuggestions.value = []
     return
   }
-  const res = await api.get('/owners/', {
-    params: {
-      q: event.query,
-      limit: 20,
-    },
-  })
-  ownerSuggestions.value = res.data.map((owner: any) => ({
-    label: `${owner.first_name} ${owner.last_name}`,
-    value: owner.id,
-  }))
+  ownerSuggestions.value = await searchOwnersByQuery(event.query, 20)
 }
 
 async function searchPatients(event: { query?: string }) {
@@ -95,16 +88,7 @@ async function searchPatients(event: { query?: string }) {
     patientSuggestions.value = []
     return
   }
-  const res = await api.get('/patients/', {
-    params: {
-      q: event.query,
-      limit: 20,
-    },
-  })
-  patientSuggestions.value = res.data.items.map((patient: any) => ({
-    label: patient.name,
-    value: patient.id,
-  }))
+  patientSuggestions.value = await searchPatientsByName(event.query, 20)
 }
 
 function selectedId(option: FilterOption | string | null) {
@@ -132,9 +116,9 @@ async function loadOrders(event?: any) {
     if (statusFilter.value === 'archived') params.archived = true
     if (statusFilter.value === 'resulted') params.resulted = true
 
-    const res = await api.get('/orders', { params })
-    orders.value = res.data.items
-    totalRecords.value = res.data.total
+    const data = await getOrdersPage(params)
+    orders.value = data.items
+    totalRecords.value = data.total
   } finally {
     loading.value = false
   }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import Card from 'primevue/card'
-import api from '../api/http'
+import { getDashboardStats } from '../api/dashboard'
 
 type DashboardStats = {
   total_orders: number
@@ -21,8 +21,7 @@ async function loadStats(): Promise<void> {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    const res = await api.get('/dashboard/stats')
-    stats.value = res.data
+    stats.value = await getDashboardStats()
   } catch (error) {
     console.error('Failed to load dashboard stats', error)
     errorMessage.value = 'Failed to load dashboard statistics.'
