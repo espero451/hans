@@ -2,15 +2,24 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import Owner
-from .repositories import fetch_owner, fetch_owners
+from .repositories import count_owners, fetch_owner, fetch_owners
 from .schemas import OwnerCreate, OwnerRead
 
 
 # --- OWNER FLOWS ------------------------------------------------------
 
-async def get_owners(skip: int, limit: int, db: AsyncSession) -> list[OwnerRead]:
-    owners = await fetch_owners(skip, limit, db)
-    return [OwnerRead.model_validate(owner) for owner in owners]
+async def get_owners(
+    skip: int,
+    limit: int,
+    first_name: str | None,
+    last_name: str | None,
+    email: str | None,
+    phone: str | None,
+    db: AsyncSession,
+) -> tuple[list[OwnerRead], int]:
+    owners = await fetch_owners(skip, limit, first_name, last_name, email, phone, db)
+    total = await count_owners(first_name, last_name, email, phone, db)
+    return [OwnerRead.model_validate(owner) for owner in owners], total
 
 
 async def get_owner(owner_id: int, db: AsyncSession) -> OwnerRead:

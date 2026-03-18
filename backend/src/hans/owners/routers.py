@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
 
 from hans.core.auth import get_current_user
 from hans.core.core import audit_log
 from hans.core.db import get_db
+from hans.core.schemas import Page
 from hans.users import User
-from hans.owners.models import Owner
 
 from .schemas import OwnerCreate, OwnerRead
 from .services import (
@@ -32,25 +31,27 @@ async def get_owner(
     return await get_owner_service(owner_id, db)
 
 
-@router.get("/", response_model=list[OwnerRead])
+@router.get("/", response_model=Page[OwnerRead])
 async def get_owners(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    q: str | None = Query(None, min_length=1),
-    skip: int = 0,
-    limit: int = Query(20, le=100),
-):
-    query = select(Owner)
-    if q:
-        query = query.where(
-            or_(
-                Owner.first_name.ilike(f"%{q}%"),
-                Owner.last_name.ilike(f"%{q}%"),
-            )
-        )
-    query = query.order_by(Owner.last_name).offset(skip).limit(limit)
-    result = await db.execute(query)
-    return result.scalars().all()
+    first_name: str | None = Query(None, min_length=1),
+    last_name: str | None = Query(None, min_length=1),
+    email: str | None = Query(None, min_length=1),
+    phone: str | None = Query(None, min_length=1),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+) -> Page[OwnerRead]:
+    items, total = await get_owners_service(
+        skip,
+        limit,
+        first_name,
+        last_name,
+        email,
+        phone,
+        db,
+    )
+    return Page(items=items, total=total)
 
 
 @router.post("/", response_model=OwnerRead)
