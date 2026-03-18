@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 import asyncio
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,8 +9,10 @@ from hans.tools.barcodes import generate_zpl_label
 
 from .models import Order, Result, ServiceRun, Specimen, TestRun
 from .repositories import (
+    count_orders,
     fetch_order,
     fetch_order_basic,
+    fetch_orders,
     fetch_patient_orders,
     fetch_result,
     fetch_service_catalogs,
@@ -102,6 +104,37 @@ async def load_order(order_id: int, db: AsyncSession) -> OrderRead:
 async def get_patient_orders(patient_id: int, db: AsyncSession) -> list[OrderRead]:
     orders = await fetch_patient_orders(patient_id, db)
     return [OrderRead.model_validate(order) for order in orders]
+
+
+async def get_orders(
+    skip: int,
+    limit: int,
+    patient_id: int | None,
+    owner_id: int | None,
+    archived: bool | None,
+    resulted: bool | None,
+    created_date: date | None,
+    db: AsyncSession,
+) -> tuple[list[OrderRead], int]:
+    orders = await fetch_orders(
+        skip=skip,
+        limit=limit,
+        patient_id=patient_id,
+        owner_id=owner_id,
+        archived=archived,
+        resulted=resulted,
+        created_date=created_date,
+        db=db,
+    )
+    total = await count_orders(
+        patient_id=patient_id,
+        owner_id=owner_id,
+        archived=archived,
+        resulted=resulted,
+        created_date=created_date,
+        db=db,
+    )
+    return [OrderRead.model_validate(order) for order in orders], total
 
 
 async def toggle_order_archive(order_id: int, db: AsyncSession) -> OrderArchivedStatusRead:

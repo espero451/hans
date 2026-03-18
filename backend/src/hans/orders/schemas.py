@@ -91,9 +91,23 @@ class ServiceRunRead(ORMModel):
     completed_at: Optional[datetime] = None
 
 
+class OrderOwnerShort(ORMModel):
+    id: int
+    first_name: str
+    last_name: str
+
+
+class OrderPatientShort(ORMModel):
+    id: int
+    name: str
+    owner_id: int
+    owner: Optional[OrderOwnerShort] = None
+
+
 class OrderRead(ORMModel):
     id: int
     patient_id: int
+    patient: Optional[OrderPatientShort] = None
     created_by: Optional[int] = None
     created_at: datetime
     archived: bool

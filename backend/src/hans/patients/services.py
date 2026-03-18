@@ -30,9 +30,14 @@ async def get_species(db: AsyncSession) -> list[SpeciesRead]:
     # return [PatientRead.model_validate(item) for item in patients]
 
 
-async def get_patients(skip: int, limit: int, db: AsyncSession) -> tuple[list[PatientRead], int]:
-    patients = await fetch_patients(skip, limit, db)
-    total = await count_patients(db)
+async def get_patients(
+    skip: int,
+    limit: int,
+    q: str | None,
+    db: AsyncSession,
+) -> tuple[list[PatientRead], int]:
+    patients = await fetch_patients(skip, limit, q, db)
+    total = await count_patients(q, db)
     items = [PatientRead.model_validate(p) for p in patients]
     return items, total
 

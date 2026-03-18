@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api/http'
 import Button from 'primevue/button'
@@ -8,17 +8,27 @@ import Column from 'primevue/column'
 import Dropdown from 'primevue/dropdown'
 import DatePicker from 'primevue/datepicker'
 import Tag from 'primevue/tag'
+import AutoComplete from 'primevue/autocomplete'
 
 const router = useRouter()
 
+type FilterOption = {
+  label: string
+  value: number
+}
+
 const orders = ref<any[]>([])
-const patients = ref<any[]>([])
-const owners = ref<any[]>([])
+const totalRecords = ref(0)
+const rows = ref(50)
+const first = ref(0)
+const loading = ref(false)
+const ownerSuggestions = ref<FilterOption[]>([])
+const patientSuggestions = ref<FilterOption[]>([])
 
 const statusFilter = ref<'active' | 'resulted' | 'archived'>('active')
 const selectedDate = ref<Date | null>(null)
-const selectedOwner = ref<number | null>(null)
-const selectedPatient = ref<number | null>(null)
+const selectedOwner = ref<FilterOption | string | null>(null)
+const selectedPatient = ref<FilterOption | string | null>(null)
 
 const statusOptions = [
   { label: 'Active', value: 'active' },
@@ -26,33 +36,10 @@ const statusOptions = [
   { label: 'Archived', value: 'archived' },
 ]
 
-const ownerOptions = computed(() =>
-  owners.value.map((o) => ({
-    label: `${o.first_name} ${o.last_name}`,
-    value: o.id,
-  })),
-)
-
-const patientOptions = computed(() =>
-  patients.value.map((p) => ({
-    label: p.name,
-    value: p.id,
-  })),
-)
-
-const patientById = computed(() => new Map(patients.value.map((p) => [p.id, p])))
-const ownerById = computed(() => new Map(owners.value.map((o) => [o.id, o])))
-
 function orderHasResults(order: any) {
   return (order?.test_runs || []).some(
     (run: any) => Array.isArray(run.results) && run.results.length > 0,
   )
-}
-
-function urgencyRank(urgency?: string) {
-  if (urgency === 'STAT') return 0
-  if (urgency === 'URGENT') return 1
-  return 2
 }
 
 function urgencySeverity(urgency?: string) {
@@ -71,76 +58,90 @@ function dateKey(input: string | Date | null) {
   return `${year}-${month}-${day}`
 }
 
-function patientLabel(patientId: number) {
-  const patient = patientById.value.get(patientId)
-  return patient ? patient.name : `Patient #${patientId}`
+function patientLabel(order: any) {
+  return order?.patient?.name ? order.patient.name : `Patient #${order.patient_id}`
 }
 
-function ownerLabelForPatient(patientId: number) {
-  const patient = patientById.value.get(patientId)
+function ownerLabel(order: any) {
+  const patient = order?.patient
   if (!patient) return 'Unknown'
-  const owner = ownerById.value.get(patient.owner_id)
+  const owner = patient.owner
   return owner ? `${owner.first_name} ${owner.last_name}` : `Owner #${patient.owner_id}`
 }
 
-const filteredOrders = computed(() => {
-  const selectedDateKey = dateKey(selectedDate.value)
-  const list = orders.value.filter((order) => {
-    if (statusFilter.value === 'active' && order.archived) return false
-    if (statusFilter.value === 'archived' && !order.archived) return false
-    if (statusFilter.value === 'resulted' && !orderHasResults(order)) return false
-
-    if (selectedDateKey) {
-      const orderDateKey = dateKey(order.created_at)
-      if (!orderDateKey || orderDateKey !== selectedDateKey) return false
-    }
-
-    if (selectedPatient.value && order.patient_id !== selectedPatient.value) {
-      return false
-    }
-
-    if (selectedOwner.value) {
-      const patient = patientById.value.get(order.patient_id)
-      if (!patient || patient.owner_id !== selectedOwner.value) return false
-    }
-
-    return true
-  })
-
-  return list.sort((a, b) => {
-    const urgencyDiff = urgencyRank(a.urgency) - urgencyRank(b.urgency)
-    if (urgencyDiff !== 0) return urgencyDiff
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  })
-})
-
 const resultsSummary = computed(
-  () => `${filteredOrders.value.length} of ${orders.value.length} orders`,
+  () => `${orders.value.length} of ${totalRecords.value} orders`,
 )
 
-async function loadOwners() {
-  const res = await api.get('/owners/')
-  owners.value = res.data
-}
-
-async function loadPatients() {
-  const res = await api.get('/patients/')
-  patients.value = res.data.items
-}
-
-async function loadOrders() {
-  const orderPromises = patients.value.map(async (patient) => {
-    try {
-      const res = await api.get(`/patients/${patient.id}/orders`)
-      return res.data
-    } catch (err) {
-      console.error(`Failed to load orders for patient ${patient.id}`, err)
-      return []
-    }
+async function searchOwners(event: { query?: string }) {
+  if (!event.query || event.query.length < 2) {
+    ownerSuggestions.value = []
+    return
+  }
+  const res = await api.get('/owners/', {
+    params: {
+      q: event.query,
+      limit: 20,
+    },
   })
+  ownerSuggestions.value = res.data.map((owner: any) => ({
+    label: `${owner.first_name} ${owner.last_name}`,
+    value: owner.id,
+  }))
+}
 
-  const ordersNested = await Promise.all(orderPromises)
-  orders.value = ordersNested.flat()
+async function searchPatients(event: { query?: string }) {
+  if (!event.query || event.query.length < 2) {
+    patientSuggestions.value = []
+    return
+  }
+  const res = await api.get('/patients/', {
+    params: {
+      q: event.query,
+      limit: 20,
+    },
+  })
+  patientSuggestions.value = res.data.items.map((patient: any) => ({
+    label: patient.name,
+    value: patient.id,
+  }))
+}
+
+function selectedId(option: FilterOption | string | null) {
+  if (!option || typeof option === 'string') return undefined
+  return option.value
+}
+
+async function loadOrders(event?: any) {
+  const skip = event?.first ?? first.value
+  const limit = event?.rows ?? rows.value
+  first.value = skip
+  rows.value = limit
+  loading.value = true
+
+  try {
+    const params: any = {
+      skip,
+      limit,
+      patient_id: selectedId(selectedPatient.value),
+      owner_id: selectedId(selectedOwner.value),
+      created_date: dateKey(selectedDate.value) || undefined,
+    }
+
+    if (statusFilter.value === 'active') params.archived = false
+    if (statusFilter.value === 'archived') params.archived = true
+    if (statusFilter.value === 'resulted') params.resulted = true
+
+    const res = await api.get('/orders', { params })
+    orders.value = res.data.items
+    totalRecords.value = res.data.total
+  } finally {
+    loading.value = false
+  }
+}
+
+function reloadFromFirstPage() {
+  loadOrders({ first: 0, rows: rows.value })
 }
 
 function resetFilters() {
@@ -150,9 +151,14 @@ function resetFilters() {
   selectedPatient.value = null
 }
 
+watch([statusFilter, selectedDate, selectedOwner, selectedPatient], () => {
+  if (typeof selectedOwner.value === 'string') return
+  if (typeof selectedPatient.value === 'string') return
+  reloadFromFirstPage()
+})
+
 onMounted(async () => {
-  await Promise.all([loadOwners(), loadPatients()])
-  await loadOrders()
+  await loadOrders({ first: 0, rows: rows.value })
 })
 </script>
 
@@ -170,21 +176,23 @@ onMounted(async () => {
           placeholder="Status"
         />
         <DatePicker v-model="selectedDate" placeholder="Filter date" showIcon showButtonBar />
-        <Dropdown
+        <AutoComplete
           v-model="selectedOwner"
-          :options="ownerOptions"
+          :suggestions="ownerSuggestions"
           optionLabel="label"
-          optionValue="value"
           placeholder="Filter owner"
-          showClear
+          @complete="searchOwners"
+          dropdown
+          forceSelection
         />
-        <Dropdown
+        <AutoComplete
           v-model="selectedPatient"
-          :options="patientOptions"
+          :suggestions="patientSuggestions"
           optionLabel="label"
-          optionValue="value"
           placeholder="Filter patient"
-          showClear
+          @complete="searchPatients"
+          dropdown
+          forceSelection
         />
         <Button label="Reset" severity="secondary" @click="resetFilters" />
       </div>
@@ -195,9 +203,15 @@ onMounted(async () => {
         <span class="text-600">{{ resultsSummary }}</span>
       </div>
       <DataTable
-        :value="filteredOrders"
+        :value="orders"
         dataKey="id"
+        lazy
+        paginator
+        :rows="rows"
+        :totalRecords="totalRecords"
+        :loading="loading"
         :emptyMessage="'No orders found'"
+        @page="loadOrders"
         @row-click="(e) => router.push(`/orders/${e.data.id}`)"
       >
         <Column header="Order">
@@ -234,13 +248,13 @@ onMounted(async () => {
         <Column header="Patient">
           <template #body="{ data }">
             <a :href="`/patients/${data.patient_id}`">
-              {{ patientLabel(data.patient_id) }}
+              {{ patientLabel(data) }}
             </a>
           </template>
         </Column>
         <Column header="Owner">
           <template #body="{ data }">
-            {{ ownerLabelForPatient(data.patient_id) }}
+            {{ ownerLabel(data) }}
           </template>
         </Column>
       </DataTable>

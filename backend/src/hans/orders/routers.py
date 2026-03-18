@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends
+from datetime import date
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hans.core.auth import get_current_user
 from hans.core.core import audit_log
 from hans.core.db import get_db
+from hans.core.schemas import Page
 from hans.users import User
 
 from .schemas import (
@@ -22,6 +25,7 @@ from .services import (
     receive_specimen as receive_specimen_service,
     print_specimen as print_specimen_service,
     create_result as create_result_service,
+    get_orders as get_orders_service,
     get_patient_orders as get_patient_orders_service,
     load_order,
     toggle_order_archive,
@@ -45,6 +49,31 @@ async def create_order(
     order = await create_order_service(data, db, user.id)
     audit_log(user.id, f"Created order {order.id} for patient {data.patient_id}")
     return order
+
+
+@router.get("/orders", response_model=Page[OrderRead])
+async def get_orders(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    patient_id: int | None = Query(None, ge=1),
+    owner_id: int | None = Query(None, ge=1),
+    archived: bool | None = None,
+    resulted: bool | None = None,
+    created_date: date | None = None,
+) -> Page[OrderRead]:
+    items, total = await get_orders_service(
+        skip=skip,
+        limit=limit,
+        patient_id=patient_id,
+        owner_id=owner_id,
+        archived=archived,
+        resulted=resulted,
+        created_date=created_date,
+        db=db,
+    )
+    return Page(items=items, total=total)
 
 
 @router.get("/orders/{order_id}", response_model=OrderRead)

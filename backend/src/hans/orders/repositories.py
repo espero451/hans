@@ -1,9 +1,11 @@
+from datetime import date
 from typing import Optional
 
-from sqlalchemy import select, text
+from sqlalchemy import case, exists, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from hans.patients.models import Patient
 from hans.services import ServiceCatalog
 from hans.tests import TestCatalog
 
@@ -42,6 +44,88 @@ async def fetch_patient_orders(patient_id: int, db: AsyncSession) -> list[Order]
         .order_by(Order.created_at.desc())
     )
     return result.scalars().unique().all()
+
+
+async def fetch_orders(
+    skip: int,
+    limit: int,
+    patient_id: int | None,
+    owner_id: int | None,
+    archived: bool | None,
+    resulted: bool | None,
+    created_date: date | None,
+    db: AsyncSession,
+) -> list[Order]:
+    query = select(Order)
+    urgency_order = case(
+        (Order.urgency == "STAT", 0),
+        (Order.urgency == "URGENT", 1),
+        else_=2,
+    )
+
+    if patient_id is not None:
+        query = query.where(Order.patient_id == patient_id)
+    if owner_id is not None:
+        query = query.where(Order.patient.has(Patient.owner_id == owner_id))
+    if archived is not None:
+        query = query.where(Order.archived == archived)
+    if created_date is not None:
+        # Filter by calendar date regardless of time in created_at.
+        query = query.where(func.date(Order.created_at) == created_date)
+
+    if resulted is not None:
+        has_results = exists(
+            select(Result.id)
+            .join(TestRun, Result.test_run_id == TestRun.id)
+            .where(TestRun.order_id == Order.id)
+        )
+        query = query.where(has_results if resulted else ~has_results)
+
+    result = await db.execute(
+        query
+        .options(
+            selectinload(Order.specimens),
+            selectinload(Order.test_runs).selectinload(TestRun.results),
+            selectinload(Order.service_runs),
+            selectinload(Order.patient),
+        )
+        .order_by(urgency_order, Order.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return result.scalars().unique().all()
+
+
+async def count_orders(
+    patient_id: int | None,
+    owner_id: int | None,
+    archived: bool | None,
+    resulted: bool | None,
+    created_date: date | None,
+    db: AsyncSession,
+) -> int:
+    query = select(func.count()).select_from(Order)
+
+    if patient_id is not None:
+        query = query.where(Order.patient_id == patient_id)
+    if owner_id is not None:
+        query = query.where(Order.patient.has(Patient.owner_id == owner_id))
+    if archived is not None:
+        query = query.where(Order.archived == archived)
+    if created_date is not None:
+        # Keep total aligned with the active date filter.
+        query = query.where(func.date(Order.created_at) == created_date)
+
+    if resulted is not None:
+        has_results = exists(
+            select(Result.id)
+            .join(TestRun, Result.test_run_id == TestRun.id)
+            .where(TestRun.order_id == Order.id)
+        )
+        query = query.where(has_results if resulted else ~has_results)
+
+    result = await db.execute(query)
+    return result.scalar_one()
 
 
 # --- CATALOG QUERIES --------------------------------------------------

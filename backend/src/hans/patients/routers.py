@@ -48,10 +48,11 @@ async def get_species(
 async def get_patients(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    q: str | None = Query(None, min_length=1),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
 ) -> Page[PatientRead]:
-    items, total = await get_patients_service(skip, limit, db)
+    items, total = await get_patients_service(skip, limit, q, db)
     return Page(
         items=items,
         total=total,
