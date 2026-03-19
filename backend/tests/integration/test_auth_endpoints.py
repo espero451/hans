@@ -1,11 +1,13 @@
-from fastapi.testclient import TestClient
+import pytest
+from httpx import AsyncClient
 
 
 # --- Auth Endpoints ---------------------------------------------------
 
-def test_login_and_me_success(client: TestClient, auth_headers: dict[str, str]) -> None:
+@pytest.mark.asyncio
+async def test_login_and_me_success(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     # Confirm that /auth/me accepts a valid access token.
-    response = client.get("/auth/me", headers=auth_headers)
+    response = await client.get("/auth/me", headers=auth_headers)
 
     assert response.status_code == 200
     data = response.json()
@@ -13,9 +15,10 @@ def test_login_and_me_success(client: TestClient, auth_headers: dict[str, str]) 
     assert data["role"] == "admin"
 
 
-def test_login_rejects_invalid_password(client: TestClient, auth_headers: dict[str, str]) -> None:
+@pytest.mark.asyncio
+async def test_login_rejects_invalid_password(client: AsyncClient, admin_user: object) -> None:
     # Reject invalid credentials and keep response contract stable.
-    response = client.post(
+    response = await client.post(
         "/auth/token",
         data={"username": "admin", "password": "wrong-pass"},
     )
@@ -24,15 +27,16 @@ def test_login_rejects_invalid_password(client: TestClient, auth_headers: dict[s
     assert response.json()["detail"] == "Invalid credentials"
 
 
-def test_refresh_rotates_tokens(client: TestClient, auth_headers: dict[str, str]) -> None:
+@pytest.mark.asyncio
+async def test_refresh_rotates_tokens(client: AsyncClient, admin_user: object) -> None:
     # Verify refresh returns a new token pair and token type.
-    login_response = client.post(
+    login_response = await client.post(
         "/auth/token",
         data={"username": "admin", "password": "adminpass"},
     )
     assert login_response.status_code == 200
 
-    refresh_response = client.post(
+    refresh_response = await client.post(
         "/auth/refresh",
         json={"refresh_token": login_response.json()["refresh_token"]},
     )
@@ -44,8 +48,9 @@ def test_refresh_rotates_tokens(client: TestClient, auth_headers: dict[str, str]
     assert payload["refresh_token"]
 
 
-def test_me_requires_token(client: TestClient) -> None:
+@pytest.mark.asyncio
+async def test_me_requires_token(client: AsyncClient) -> None:
     # Block unauthenticated access to protected endpoint.
-    response = client.get("/auth/me")
+    response = await client.get("/auth/me")
 
     assert response.status_code == 401

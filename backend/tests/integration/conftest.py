@@ -1,12 +1,10 @@
-import asyncio
 import os
-from collections.abc import AsyncGenerator, Generator
-from typing import Any
+from collections.abc import AsyncGenerator
 
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlalchemy import delete
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -21,26 +19,17 @@ from hans.core.auth import hash_password, router as auth_router
 from hans.core.core import create_app
 from hans.core.db import Base, get_db
 from hans.dashboard.routers import router as dashboard_router
-from hans.instruments import Instrument
-from hans.owners.models import Owner
+from hans.instruments import Instrument, Workstation
 from hans.owners.routers import router as owners_router
-from hans.patients.models import Patient, Species
 from hans.patients.routers import router as patients_router, species_router
 from hans.services.routers import router as services_router
-from hans.specimens.models import SpecimenType
 from hans.specimens.routers import router as specimens_router
 from hans.tests.routers import router as tests_router
-from hans.tubes.models import TubeType
 from hans.tubes.routers import router as tubes_router
 from hans.users.models import User
 
 
 # --- Helpers ----------------------------------------------------------
-
-def _run(coro: Any) -> Any:
-    # Execute async setup/teardown from sync pytest fixtures.
-    return asyncio.run(coro)
-
 
 def _build_app() -> FastAPI:
     # Build an API app without runtime workers and admin side effects.
@@ -68,63 +57,44 @@ def test_database_url() -> str:
     return url
 
 
-@pytest.fixture(scope="session")
-def setup_engine(test_database_url: str) -> Generator[AsyncEngine, None, None]:
-    # Keep setup operations on dedicated one-shot DB connections.
-    engine = create_async_engine(test_database_url, poolclass=NullPool)
-
-    async def _prepare_schema() -> None:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.run_sync(Base.metadata.create_all)
-
-    _run(_prepare_schema())
-    yield engine
-
-    async def _dispose() -> None:
-        await engine.dispose()
-
-    _run(_dispose())
+@pytest_asyncio.fixture(scope="session")
+async def engine(test_database_url: str) -> AsyncGenerator[AsyncEngine, None]:
+    # Use one async engine for tests to keep fixture flow deterministic.
+    db_engine = create_async_engine(test_database_url, poolclass=NullPool)
+    async with db_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    yield db_engine
+    await db_engine.dispose()
 
 
-@pytest.fixture(scope="session")
-def setup_session_factory(
-    setup_engine: AsyncEngine,
+@pytest_asyncio.fixture(scope="session")
+async def session_factory(
+    engine: AsyncEngine,
 ) -> async_sessionmaker[AsyncSession]:
-    # Share a setup session factory for data seed/cleanup steps.
-    return async_sessionmaker(setup_engine, expire_on_commit=False)
+    # Share session factory across test fixtures and app dependency override.
+    return async_sessionmaker(engine, expire_on_commit=False)
 
 
-@pytest.fixture(autouse=True)
-def clean_database(setup_session_factory: async_sessionmaker[AsyncSession]) -> None:
-    # Keep each test isolated by clearing mutable tables.
-    async def _clean() -> None:
-        async with setup_session_factory() as session:
-            await session.execute(delete(Patient))
-            await session.execute(delete(Owner))
-            await session.execute(delete(User))
-            await session.execute(delete(Species))
-            await session.execute(delete(SpecimenType))
-            await session.execute(delete(TubeType))
-            await session.execute(delete(Instrument))
-            await session.commit()
-
-    _run(_clean())
+@pytest_asyncio.fixture(autouse=True)
+async def clean_database(session_factory: async_sessionmaker[AsyncSession]) -> None:
+    # Clear all tables in FK-safe order before each test.
+    async with session_factory() as session:
+        for table in reversed(Base.metadata.sorted_tables):
+            await session.execute(table.delete())
+        await session.commit()
 
 
 # --- App And Auth -----------------------------------------------------
 
-@pytest.fixture()
-def app(
-    test_database_url: str,
+@pytest_asyncio.fixture()
+async def app(
+    session_factory: async_sessionmaker[AsyncSession],
     monkeypatch: pytest.MonkeyPatch,
-) -> Generator[FastAPI, None, None]:
-    # Use a separate app engine to avoid sharing asyncpg loop-bound state.
-    app_engine = create_async_engine(test_database_url, poolclass=NullPool)
-    app_session_factory = async_sessionmaker(app_engine, expire_on_commit=False)
-
+) -> FastAPI:
+    # Route all app DB calls through the shared test session factory.
     async def _override_get_db() -> AsyncGenerator[AsyncSession, None]:
-        async with app_session_factory() as session:
+        async with session_factory() as session:
             yield session
 
     monkeypatch.setattr("hans.owners.routers.audit_log", lambda *_args, **_kwargs: None)
@@ -132,44 +102,39 @@ def app(
 
     app_instance = _build_app()
     app_instance.dependency_overrides[get_db] = _override_get_db
-    yield app_instance
-
-    async def _dispose() -> None:
-        await app_engine.dispose()
-
-    _run(_dispose())
+    return app_instance
 
 
-@pytest.fixture()
-def client(app: FastAPI) -> Generator[TestClient, None, None]:
-    with TestClient(app) as test_client:
-        yield test_client
+@pytest_asyncio.fixture()
+async def client(app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
+    # Drive the ASGI app in the same event loop as async fixtures/tests.
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as async_client:
+        yield async_client
 
 
-@pytest.fixture()
-def auth_headers(
-    client: TestClient,
-    setup_session_factory: async_sessionmaker[AsyncSession],
-    clean_database: None,
-) -> dict[str, str]:
-    # Seed admin user and get auth token from the real login endpoint.
-    async def _seed_user() -> None:
-        async with setup_session_factory() as session:
-            session.add(
-                User(
-                    username="admin",
-                    email="admin@example.com",
-                    role="admin",
-                    hashed_password=hash_password("adminpass"),
-                )
-            )
-            await session.commit()
+@pytest_asyncio.fixture()
+async def admin_user(session_factory: async_sessionmaker[AsyncSession]) -> User:
+    # Create one admin user to authenticate protected endpoint calls.
+    async with session_factory() as session:
+        user = User(
+            username="admin",
+            email="admin@example.com",
+            role="admin",
+            hashed_password=hash_password("adminpass"),
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        return user
 
-    _run(_seed_user())
 
-    response = client.post(
+@pytest_asyncio.fixture()
+async def auth_headers(client: AsyncClient, admin_user: User) -> dict[str, str]:
+    # Use real login flow to produce Authorization header for tests.
+    response = await client.post(
         "/auth/token",
-        data={"username": "admin", "password": "adminpass"},
+        data={"username": admin_user.username, "password": "adminpass"},
     )
     assert response.status_code == 200
     token = response.json()["access_token"]
