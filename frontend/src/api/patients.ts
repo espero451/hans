@@ -1,8 +1,8 @@
 import api from './http'
 
 type PatientsPageParams = {
-  skip?: number
-  limit?: number
+  page?: number
+  size?: number
   q?: string
   species_id?: number
   owner_id?: number
@@ -21,7 +21,7 @@ export async function getPatientsPage(params: PatientsPageParams) {
 export async function searchPatientsByName(query: string, limit = 20): Promise<PatientOption[]> {
   const trimmed = query.trim()
   if (trimmed.length < 2) return []
-  const data = await getPatientsPage({ q: trimmed, limit })
+  const data = await getPatientsPage({ q: trimmed, size: limit, page: 1 })
   return (data.items || []).map((patient: any) => ({
     label: patient.name,
     value: patient.id,

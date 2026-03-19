@@ -1,8 +1,8 @@
 import api from './http'
 
 type OwnersPageParams = {
-  skip?: number
-  limit?: number
+  page?: number
+  size?: number
   first_name?: string
   last_name?: string
   email?: string
@@ -15,10 +15,8 @@ type OwnerOption = {
 }
 
 export async function getOwners() {
-  const res = await api.get('/owners/', {
-    params: { skip: 0, limit: 200 },
-  })
-  return res.data.items
+  const data = await getOwnersPage({ page: 1, size: 50 })
+  return data.items
 }
 
 export async function getOwnersPage(params: OwnersPageParams) {
@@ -35,8 +33,8 @@ export async function searchOwnersByQuery(query: string, limit = 20): Promise<Ow
   const trimmed = query.trim()
   if (trimmed.length < 2) return []
   const [firstPage, lastPage] = await Promise.all([
-    getOwnersPage({ first_name: trimmed, limit }),
-    getOwnersPage({ last_name: trimmed, limit }),
+    getOwnersPage({ first_name: trimmed, size: limit, page: 1 }),
+    getOwnersPage({ last_name: trimmed, size: limit, page: 1 }),
   ])
   const merged = [...(firstPage.items || []), ...(lastPage.items || [])]
   const unique = new Map<number, OwnerOption>()

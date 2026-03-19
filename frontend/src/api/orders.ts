@@ -1,8 +1,8 @@
 import api from './http'
 
 type OrdersPageParams = {
-  skip?: number
-  limit?: number
+  page?: number
+  size?: number
   patient_id?: number
   owner_id?: number
   archived?: boolean

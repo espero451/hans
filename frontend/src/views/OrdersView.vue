@@ -22,7 +22,6 @@ type FilterOption = {
 const orders = ref<any[]>([])
 const totalRecords = ref(0)
 const rows = ref(50)
-const first = ref(0)
 const loading = ref(false)
 const ownerSuggestions = ref<FilterOption[]>([])
 const patientSuggestions = ref<FilterOption[]>([])
@@ -97,16 +96,15 @@ function selectedId(option: FilterOption | string | null) {
 }
 
 async function loadOrders(event?: any) {
-  const skip = event?.first ?? first.value
-  const limit = event?.rows ?? rows.value
-  first.value = skip
-  rows.value = limit
+  const uiPage = event?.page ?? 0
+  const size = event?.rows ?? rows.value
+  rows.value = size
   loading.value = true
 
   try {
     const params: any = {
-      skip,
-      limit,
+      page: uiPage + 1,
+      size,
       patient_id: selectedId(selectedPatient.value),
       owner_id: selectedId(selectedOwner.value),
       created_date: dateKey(selectedDate.value) || undefined,
@@ -125,7 +123,7 @@ async function loadOrders(event?: any) {
 }
 
 function reloadFromFirstPage() {
-  loadOrders({ first: 0, rows: rows.value })
+  loadOrders({ page: 0, rows: rows.value })
 }
 
 function resetFilters() {
@@ -142,7 +140,7 @@ watch([statusFilter, selectedDate, selectedOwner, selectedPatient], () => {
 })
 
 onMounted(async () => {
-  await loadOrders({ first: 0, rows: rows.value })
+  await loadOrders({ page: 0, rows: rows.value })
 })
 </script>
 

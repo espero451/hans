@@ -36,11 +36,15 @@ const editEmail = ref('')
 const editPhone = ref('')
 
 async function load(event?: any) {
-  const skip = event?.first ?? 0
-  const limit = event?.rows ?? rows.value
+  const uiPage = event?.page ?? 0
+  const size = event?.rows ?? rows.value
+  rows.value = size
   loading.value = true
   try {
-    const params: any = { skip, limit }
+    const params: any = {
+      page: uiPage + 1,
+      size,
+    }
     if (filterFirstName.value.trim()) {
       params.first_name = filterFirstName.value.trim()
     }
@@ -62,7 +66,7 @@ async function load(event?: any) {
 }
 
 function reloadFromFirstPage() {
-  load({ first: 0, rows: rows.value })
+  load({ page: 0, rows: rows.value })
 }
 
 function resetFilters() {
@@ -125,7 +129,7 @@ watch([filterFirstName, filterLastName, filterEmail, filterPhone], () => {
 })
 
 onMounted(() => {
-  load({ first: 0, rows: rows.value })
+  load({ page: 0, rows: rows.value })
 })
 </script>
 

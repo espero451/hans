@@ -6,8 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from hans.core.auth import get_current_user
 from hans.core.core import audit_log
 from hans.core.db import get_db
-from hans.core.schemas import Page
 from hans.users import User
+from fastapi_pagination import Page, Params
+from fastapi_pagination.ext.sqlalchemy import paginate
 
 from .schemas import (
     OrderArchivedStatusRead,
@@ -55,25 +56,21 @@ async def create_order(
 async def get_orders(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    params: Params = Depends(),
     patient_id: int | None = Query(None, ge=1),
     owner_id: int | None = Query(None, ge=1),
     archived: bool | None = None,
     resulted: bool | None = None,
     created_date: date | None = None,
 ) -> Page[OrderRead]:
-    items, total = await get_orders_service(
-        skip=skip,
-        limit=limit,
+    query = await get_orders_service(
         patient_id=patient_id,
         owner_id=owner_id,
         archived=archived,
         resulted=resulted,
         created_date=created_date,
-        db=db,
     )
-    return Page(items=items, total=total)
+    return await paginate(db, query, params=params)
 
 
 @router.get("/orders/{order_id}", response_model=OrderRead)

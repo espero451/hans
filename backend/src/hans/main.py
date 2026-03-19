@@ -11,6 +11,7 @@ from hans.tubes.routers import router as tubes_router
 from hans.instruments import router as instruments_router
 from hans.dashboard.routers import router as dashboard_router
 from hans.interfaces.dispatcher.api import router as dispatcher_router
+from fastapi_pagination import add_pagination
 
 from hans.admin import build_admin
 from hans.runtime import register_runtime
@@ -30,6 +31,7 @@ app.include_router(tubes_router)
 app.include_router(dashboard_router)
 app.include_router(instruments_router, tags=["instruments"])
 app.include_router(dispatcher_router, tags=["dispatcher"])
+add_pagination(app)
 
 # Register SQLAdmin UI and auth.
 build_admin(app)

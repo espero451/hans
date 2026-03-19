@@ -38,11 +38,15 @@ const speciesName = computed(() => {
 })
 
 async function loadPatients(event?: any) {
-  const skip = event?.first ?? 0
-  const limit = event?.rows ?? rows.value
+  const uiPage = event?.page ?? 0
+  const size = event?.rows ?? rows.value
+  rows.value = size
   loading.value = true
   try {
-    const params: any = { skip, limit }
+    const params: any = {
+      page: uiPage + 1,
+      size,
+    }
     if (filterName.value.trim()) {
       params.q = filterName.value.trim()
     }
@@ -84,7 +88,7 @@ function resetFilters() {
   filterName.value = ''
   filterSpeciesId.value = null
   filterOwner.value = null
-  loadPatients({ first: 0, rows: rows.value })
+  loadPatients({ page: 0, rows: rows.value })
 }
 
 // Add patient
@@ -122,7 +126,7 @@ onMounted(() => {
 
 watch([filterName, filterSpeciesId, filterOwner], () => {
   if (typeof filterOwner.value === 'string') return
-  loadPatients({ first: 0, rows: rows.value })
+  loadPatients({ page: 0, rows: rows.value })
 })
 </script>
 

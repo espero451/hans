@@ -4,8 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from hans.core.auth import get_current_user
 from hans.core.core import audit_log
 from hans.core.db import get_db
-from hans.core.schemas import Page
 from hans.users import User
+from fastapi_pagination import Page, Params
+from fastapi_pagination.ext.sqlalchemy import paginate
 
 from .schemas import OwnerCreate, OwnerRead
 from .services import (
@@ -35,23 +36,14 @@ async def get_owner(
 async def get_owners(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    params: Params = Depends(),
     first_name: str | None = Query(None, min_length=1),
     last_name: str | None = Query(None, min_length=1),
     email: str | None = Query(None, min_length=1),
     phone: str | None = Query(None, min_length=1),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
 ) -> Page[OwnerRead]:
-    items, total = await get_owners_service(
-        skip,
-        limit,
-        first_name,
-        last_name,
-        email,
-        phone,
-        db,
-    )
-    return Page(items=items, total=total)
+    query = await get_owners_service(first_name, last_name, email, phone)
+    return await paginate(db, query, params=params)
 
 
 @router.post("/", response_model=OwnerRead)

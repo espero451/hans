@@ -3,9 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from hans.core.auth import get_current_principal, get_current_user
 from hans.core.core import audit_log
-from hans.core.schemas import Page
 from hans.core.db import get_db
 from hans.users import User
+from fastapi_pagination import Page, Params
+from fastapi_pagination.ext.sqlalchemy import paginate
 
 from .schemas import PatientCreate, PatientRead, PatientUpdate, SpeciesRead
 from .services import (
@@ -48,17 +49,13 @@ async def get_species(
 async def get_patients(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    params: Params = Depends(),
     q: str | None = Query(None, min_length=1),
     species_id: int | None = Query(None, ge=1),
     owner_id: int | None = Query(None, ge=1),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
 ) -> Page[PatientRead]:
-    items, total = await get_patients_service(skip, limit, q, species_id, owner_id, db)
-    return Page(
-        items=items,
-        total=total,
-    )
+    query = await get_patients_service(q, species_id, owner_id)
+    return await paginate(db, query, params=params)
 
 
 @router.post("/", response_model=PatientRead)
