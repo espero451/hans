@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 import time
 from fastapi import Depends, HTTPException, APIRouter, Request
@@ -50,7 +50,8 @@ def verify_password(password: str, hashed: str) -> bool:
 # Create a signed JWT token with a type and expiration time.
 def _create_token(data: dict, expires_delta: timedelta, token_type: str) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + expires_delta
+    # Use aware UTC datetime to avoid local-time timestamp shifts.
+    expire = datetime.now(timezone.utc) + expires_delta
     to_encode["exp"] = int(expire.timestamp())
     to_encode["type"] = token_type
     if "sub" in to_encode:

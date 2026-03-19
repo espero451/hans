@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     barcode_printer_port: int = 9100
     barcode_printer_timeout: float = 3.0
 
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
 # Load env-backed settings once at import time.
