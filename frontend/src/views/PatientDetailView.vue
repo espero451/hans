@@ -190,7 +190,7 @@ async function loadPatientPhoto() {
   try {
     const photoBlob = await getPatientPhoto(patient.value.id)
     patientPhotoUrl.value = URL.createObjectURL(photoBlob)
-  } catch (_err) {
+  } catch {
     patientPhotoUrl.value = null
   }
 }

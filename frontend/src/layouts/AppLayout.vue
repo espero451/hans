@@ -37,7 +37,7 @@ const { user, clearUser, loadUser } = useAuth()
 onMounted(async () => {
   try {
     await loadUser()
-  } catch (_err) {
+  } catch {
     localStorage.removeItem('token')
   }
 })

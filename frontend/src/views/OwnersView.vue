@@ -26,7 +26,7 @@ const filterFirstName = ref('')
 const filterLastName = ref('')
 const filterEmail = ref('')
 const filterPhone = ref('')
-let filterTimer: ReturnType<typeof setTimeout> | null = null
+let filterTimer: ReturnType<typeof window.setTimeout> | null = null
 
 // Edit mode
 const editingId = ref<number | null>(null)
@@ -121,9 +121,9 @@ async function saveEdit(ownerId: number) {
 
 watch([filterFirstName, filterLastName, filterEmail, filterPhone], () => {
   if (filterTimer) {
-    clearTimeout(filterTimer)
+    window.clearTimeout(filterTimer)
   }
-  filterTimer = setTimeout(() => {
+  filterTimer = window.setTimeout(() => {
     reloadFromFirstPage()
   }, 250)
 })

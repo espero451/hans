@@ -29,7 +29,7 @@ async function loadDispatcherStatus() {
     dispatcherError.value = data.error || null
     dispatcherLastStartedAt.value = data.last_started_at || null
     dispatcherLastStoppedAt.value = data.last_stopped_at || null
-  } catch (_err) {
+  } catch {
     dispatcherStatus.value = 'stopped'
     dispatcherError.value = 'Unable to load dispatcher status'
     dispatcherLastStartedAt.value = null
