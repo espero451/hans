@@ -8,9 +8,8 @@ from sqlalchemy import ForeignKey, String
 
 from hans.core.core import audit_log
 from hans.core.db import Base, get_db
-from hans.core.auth import get_current_user
+from hans.core.auth import AuthPrincipal, require_admin
 from hans.core.schemas import ORMModel
-from hans.users import User
 
 
 # --- MODELS ----------------------------------------------------------
@@ -68,13 +67,13 @@ class WorkstationRead(ORMModel):
 router = APIRouter()
 
 @router.get("/instruments", response_model=list[InstrumentRead])
-async def get_instruments(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def get_instruments(db: AsyncSession = Depends(get_db), user: AuthPrincipal = Depends(require_admin)):
     result = await db.execute(select(Instrument).order_by(Instrument.name))
     return result.scalars().all()
 
 
 @router.post("/instruments", response_model=InstrumentRead)
-async def create_instrument(data: InstrumentCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def create_instrument(data: InstrumentCreate, db: AsyncSession = Depends(get_db), user: AuthPrincipal = Depends(require_admin)):
     instrument = Instrument(**data.dict())
     db.add(instrument)
     await db.commit()
@@ -83,7 +82,7 @@ async def create_instrument(data: InstrumentCreate, db: AsyncSession = Depends(g
 
 
 @router.put("/instruments/{instrument_id}", response_model=InstrumentRead)
-async def update_instrument(instrument_id: int, data: InstrumentCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def update_instrument(instrument_id: int, data: InstrumentCreate, db: AsyncSession = Depends(get_db), user: AuthPrincipal = Depends(require_admin)):
     result_obj = await db.execute(select(Instrument).where(Instrument.id == instrument_id))
     instrument = result_obj.scalar_one_or_none()
     if not instrument:
@@ -96,7 +95,7 @@ async def update_instrument(instrument_id: int, data: InstrumentCreate, db: Asyn
 
 
 @router.delete("/instruments/{instrument_id}")
-async def delete_instrument(instrument_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def delete_instrument(instrument_id: int, db: AsyncSession = Depends(get_db), user: AuthPrincipal = Depends(require_admin)):
     result_obj = await db.execute(select(Instrument).where(Instrument.id == instrument_id))
     instrument = result_obj.scalar_one_or_none()
     if not instrument:
@@ -108,13 +107,13 @@ async def delete_instrument(instrument_id: int, db: AsyncSession = Depends(get_d
 
 
 @router.get("/workstations", response_model=list[WorkstationRead])
-async def get_workstations(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def get_workstations(db: AsyncSession = Depends(get_db), user: AuthPrincipal = Depends(require_admin)):
     result = await db.execute(select(Workstation).order_by(Workstation.name))
     return result.scalars().all()
 
 
 @router.post("/workstations", response_model=WorkstationRead)
-async def create_workstation(data: WorkstationCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def create_workstation(data: WorkstationCreate, db: AsyncSession = Depends(get_db), user: AuthPrincipal = Depends(require_admin)):
     workstation = Workstation(**data.dict())
     db.add(workstation)
     await db.commit()
@@ -123,7 +122,7 @@ async def create_workstation(data: WorkstationCreate, db: AsyncSession = Depends
 
 
 @router.put("/workstations/{workstation_id}", response_model=WorkstationRead)
-async def update_workstation(workstation_id: int, data: WorkstationCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def update_workstation(workstation_id: int, data: WorkstationCreate, db: AsyncSession = Depends(get_db), user: AuthPrincipal = Depends(require_admin)):
     result_obj = await db.execute(select(Workstation).where(Workstation.id == workstation_id))
     workstation = result_obj.scalar_one_or_none()
     if not workstation:
@@ -136,7 +135,7 @@ async def update_workstation(workstation_id: int, data: WorkstationCreate, db: A
 
 
 @router.delete("/workstations/{workstation_id}")
-async def delete_workstation(workstation_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def delete_workstation(workstation_id: int, db: AsyncSession = Depends(get_db), user: AuthPrincipal = Depends(require_admin)):
     result_obj = await db.execute(select(Workstation).where(Workstation.id == workstation_id))
     workstation = result_obj.scalar_one_or_none()
     if not workstation:

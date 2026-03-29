@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from hans.core.auth import get_current_user
+from hans.core.auth import AuthPrincipal, require_staff_or_admin
 from hans.core.core import audit_log
 from hans.core.db import get_db
-from hans.users import User
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate
 
@@ -27,7 +26,7 @@ router = APIRouter(prefix="/owners", tags=["owners"])
 async def get_owner(
     owner_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> OwnerRead:
     return await get_owner_service(owner_id, db)
 
@@ -35,7 +34,7 @@ async def get_owner(
 @router.get("/", response_model=Page[OwnerRead])
 async def get_owners(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: AuthPrincipal = Depends(require_staff_or_admin),
     params: Params = Depends(),
     first_name: str | None = Query(None, min_length=1),
     last_name: str | None = Query(None, min_length=1),
@@ -50,7 +49,7 @@ async def get_owners(
 async def create_owner(
     data: OwnerCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> OwnerRead:
     owner = await create_owner_service(data, db)
     audit_log(user.id, f"Created owner {owner.id}")
@@ -62,7 +61,7 @@ async def update_owner(
     owner_id: int,
     data: OwnerCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> OwnerRead:
     owner = await update_owner_service(owner_id, data, db)
     audit_log(user.id, f"Updated owner {owner_id}")
@@ -73,7 +72,7 @@ async def update_owner(
 async def delete_owner(
     owner_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> dict[str, bool]:
     await delete_owner_service(owner_id, db)
     audit_log(user.id, f"Deleted owner {owner_id}")

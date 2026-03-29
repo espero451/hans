@@ -3,10 +3,9 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from hans.core.auth import get_current_user
+from hans.core.auth import AuthPrincipal, require_staff_or_admin
 from hans.core.core import audit_log
 from hans.core.db import get_db
-from hans.users import User
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate
 
@@ -45,7 +44,7 @@ router = APIRouter(tags=["orders"])
 async def create_order(
     data: OrderCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> OrderRead:
     order = await create_order_service(data, db, user.id)
     audit_log(user.id, f"Created order {order.id} for patient {data.patient_id}")
@@ -55,7 +54,7 @@ async def create_order(
 @router.get("/orders", response_model=Page[OrderRead])
 async def get_orders(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
     params: Params = Depends(),
     patient_id: int | None = Query(None, ge=1),
     owner_id: int | None = Query(None, ge=1),
@@ -77,7 +76,7 @@ async def get_orders(
 async def get_order(
     order_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> OrderRead:
     return await load_order(order_id, db)
 
@@ -87,7 +86,7 @@ async def update_order(
     order_id: int,
     data: OrderUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> OrderRead:
     order = await update_order_service(order_id, data, db)
     audit_log(user.id, f"Updated order {order_id}")
@@ -98,7 +97,7 @@ async def update_order(
 async def archive_order(
     order_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> OrderArchivedStatusRead:
     order = await toggle_order_archive(order_id, db)
     audit_log(user.id, f"Order {order_id} archived")
@@ -109,7 +108,7 @@ async def archive_order(
 async def get_patient_orders(
     patient_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> list[OrderRead]:
     return await get_patient_orders_service(patient_id, db)
 
@@ -119,7 +118,7 @@ async def get_patient_orders(
 async def collect_specimen(
     specimen_id: str,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> SpecimenRead:
     specimen = await collect_specimen_service(specimen_id, db)
     audit_log(user.id, f"Specimen collected {specimen_id}")
@@ -130,7 +129,7 @@ async def collect_specimen(
 async def receive_specimen(
     specimen_id: str,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> SpecimenRead:
     specimen = await receive_specimen_service(specimen_id, db)
     audit_log(user.id, f"Specimen received {specimen_id}")
@@ -141,7 +140,7 @@ async def receive_specimen(
 async def print_specimen(
     specimen_id: str,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> SpecimenRead:
     specimen = await print_specimen_service(specimen_id, db)
     audit_log(user.id, f"Specimen {specimen_id} barcode printed")
@@ -153,7 +152,7 @@ async def create_result(
     test_run_id: int,
     data: ResultCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> ResultRead:
     result = await create_result_service(test_run_id, data, db)
     audit_log(user.id, f"Created result {result.id} for test_run {test_run_id}")
@@ -165,7 +164,7 @@ async def update_result(
     result_id: int,
     data: ResultUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> ResultRead:
     result = await update_result_service(result_id, data, db)
     audit_log(user.id, f"Updated result {result_id}")
@@ -176,7 +175,7 @@ async def update_result(
 async def verify_result(
     result_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: AuthPrincipal = Depends(require_staff_or_admin),
 ) -> ResultRead:
     result = await toggle_result_verify(result_id, user.id, db)
     action = "verified" if result.verified else "unverified"
