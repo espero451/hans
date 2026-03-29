@@ -67,10 +67,12 @@ async def test_owners_crud_flow(client: AsyncClient, auth_headers: dict[str, str
     assert owner_data["email"] == "ann@example.com"
     assert set(owner_data.keys()) == {"id", "first_name", "last_name", "email", "phone", "comment"}
 
-    list_response = await client.get("/owners/?limit=10&skip=0", headers=auth_headers)
+    list_response = await client.get("/owners/?page=1&size=10", headers=auth_headers)
     assert list_response.status_code == 200
     list_data = list_response.json()
-    assert set(list_data.keys()) == {"items", "total"}
+    assert set(list_data.keys()) == {"items", "total", "page", "size", "pages"}
+    assert list_data["page"] == 1
+    assert list_data["size"] == 10
     assert list_data["total"] == 1
     assert len(list_data["items"]) == 1
 
@@ -120,10 +122,12 @@ async def test_patients_create_list_and_get(
     patient = create_response.json()
     assert set(patient.keys()) >= {"id", "name", "owner_id", "sex", "species_id"}
 
-    list_response = await client.get("/patients/?limit=10&skip=0", headers=auth_headers)
+    list_response = await client.get("/patients/?page=1&size=10", headers=auth_headers)
     assert list_response.status_code == 200
     list_data = list_response.json()
-    assert set(list_data.keys()) == {"items", "total"}
+    assert set(list_data.keys()) == {"items", "total", "page", "size", "pages"}
+    assert list_data["page"] == 1
+    assert list_data["size"] == 10
     assert list_data["total"] == 1
     assert list_data["items"][0]["name"] == "Rex"
     assert isinstance(list_data["items"][0]["owner_id"], int)
@@ -195,17 +199,21 @@ async def test_patient_create_rejects_invalid_payload(
 @pytest.mark.asyncio
 async def test_empty_pages_for_owners_and_patients(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     # Validate empty page contract when no records exist.
-    owners_response = await client.get("/owners/?limit=50&skip=0", headers=auth_headers)
+    owners_response = await client.get("/owners/?page=1&size=50", headers=auth_headers)
     assert owners_response.status_code == 200
     owners_data = owners_response.json()
     assert owners_data["items"] == []
     assert owners_data["total"] == 0
+    assert owners_data["page"] == 1
+    assert owners_data["size"] == 50
 
-    patients_response = await client.get("/patients/?limit=50&skip=0", headers=auth_headers)
+    patients_response = await client.get("/patients/?page=1&size=50", headers=auth_headers)
     assert patients_response.status_code == 200
     patients_data = patients_response.json()
     assert patients_data["items"] == []
     assert patients_data["total"] == 0
+    assert patients_data["page"] == 1
+    assert patients_data["size"] == 50
 
 
 @pytest.mark.asyncio
@@ -225,12 +233,12 @@ async def test_owners_pagination_edges(client: AsyncClient, auth_headers: dict[s
         )
         assert response.status_code == 200
 
-    page_one = await client.get("/owners/?limit=1&skip=0", headers=auth_headers)
+    page_one = await client.get("/owners/?page=1&size=1", headers=auth_headers)
     assert page_one.status_code == 200
     assert page_one.json()["total"] == 2
     assert len(page_one.json()["items"]) == 1
 
-    page_two = await client.get("/owners/?limit=1&skip=1", headers=auth_headers)
+    page_two = await client.get("/owners/?page=2&size=1", headers=auth_headers)
     assert page_two.status_code == 200
     assert page_two.json()["total"] == 2
     assert len(page_two.json()["items"]) == 1
@@ -239,10 +247,10 @@ async def test_owners_pagination_edges(client: AsyncClient, auth_headers: dict[s
 @pytest.mark.asyncio
 async def test_invalid_pagination_returns_422(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     # Reject out-of-range pagination values defined by query constraints.
-    owners_response = await client.get("/owners/?limit=201&skip=0", headers=auth_headers)
+    owners_response = await client.get("/owners/?page=1&size=201", headers=auth_headers)
     assert owners_response.status_code == 422
 
-    patients_response = await client.get("/patients/?limit=201&skip=0", headers=auth_headers)
+    patients_response = await client.get("/patients/?page=1&size=201", headers=auth_headers)
     assert patients_response.status_code == 422
 
 
